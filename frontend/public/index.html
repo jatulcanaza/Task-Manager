@@ -1,0 +1,185 @@
+<!doctype html>
+<!-- Documento HTML5 (doctype corto) -->
+
+<html lang="es">
+<!-- Idioma principal del documento: español (mejora accesibilidad/SEO) -->
+
+<head>
+  <meta charset="utf-8" />
+  <!-- Codificación UTF-8 para soportar caracteres especiales (tildes, ñ, etc.) -->
+
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Hace el layout responsivo en móviles (escala inicial 1) -->
+
+  <title>Task Manager</title>
+  <!-- Título que aparece en la pestaña del navegador -->
+
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Hoja de estilos principal -->
+</head>
+
+<body>
+  <header class="topbar">
+    <!-- Barra superior fija/encabezado de la app -->
+
+    <div class="brand">
+      <!-- Bloque de marca (logo + texto) -->
+
+      <div class="logo">TM</div>
+      <!-- Logo simple (iniciales) -->
+
+      <div>
+        <div class="title">Task Manager</div>
+        <!-- Nombre de la aplicación -->
+
+        <div class="subtitle">PostgreSQL + MongoDB • FastAPI</div>
+        <!-- Subtítulo/stack tecnológico -->
+      </div>
+    </div>
+
+    <div class="right">
+      <!-- Área derecha del header (estado de sesión + botón salir) -->
+
+      <div id="whoami" class="whoami"></div>
+      <!-- Se llena por JS para mostrar info de sesión (email o "Sesión activa") -->
+
+      <button id="logoutBtn" class="btn ghost hidden">Salir</button>
+      <!-- Botón de logout (inicia oculto y se muestra tras login) -->
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Contenedor principal de la app -->
+
+    <section id="authCard" class="card">
+      <!-- Card/Sección de autenticación (login/registro) -->
+
+      <h2>Inicia sesión / Regístrate</h2>
+      <p class="muted">Solo correos <b>@uce.edu.ec</b>. Tu token se guarda en el navegador.</p>
+      <!-- Mensaje informativo: validación de dominio y persistencia del token en localStorage -->
+
+      <div class="tabs">
+        <!-- Tabs para cambiar entre modo Login y Register (controlado por JS) -->
+
+        <button id="tabLogin" class="tab active">Login</button>
+        <!-- Tab de login (por defecto activo) -->
+
+        <button id="tabRegister" class="tab">Register</button>
+        <!-- Tab de registro -->
+      </div>
+
+      <form id="authForm" class="form">
+        <!-- Formulario de autenticación; JS intercepta submit para llamar al backend -->
+
+        <label>
+          Email institucional
+          <input id="email" type="email" placeholder="nombre@uce.edu.ec" required />
+          <!-- Input email: required fuerza validación HTML5 básica -->
+        </label>
+
+        <label>
+          Contraseña
+          <input id="password" type="password" placeholder="Mínimo 8, 1 mayúscula y 1 número" required />
+          <!-- Input password: required + placeholder con reglas esperadas -->
+        </label>
+
+        <button id="authSubmit" class="btn primary" type="submit">Entrar</button>
+        <!-- Botón submit; el texto cambia según modo (Entrar / Crear cuenta) por JS -->
+      </form>
+
+      <div id="authMsg" class="msg"></div>
+      <!-- Contenedor para mostrar mensajes de auth (errores/ok), seteado por JS -->
+
+      <div class="hint">
+        Tip: si ya te registraste, usa Login. Si te equivocas, verás el error aquí abajo.
+      </div>
+      <!-- Ayuda breve para el usuario -->
+    </section>
+
+    <section id="appCard" class="card hidden">
+      <!-- Card/Sección principal de la app: tareas + reporte
+           Inicia oculta (hidden) y se muestra al autenticarse -->
+
+      <div class="row">
+        <!-- Cabecera de la sección de tareas: título + acciones -->
+
+        <h2>Mis tareas</h2>
+
+        <div class="row-actions">
+            <button id="refreshBtn" class="btn">Actualizar</button>
+            <!-- Recarga tareas (GET /tasks) -->
+
+            <button id="reportBtn" class="btn ghost">Ver reporte</button>
+            <!-- Carga reporte combinado (GET /reports/tasks-with-last-change) -->
+
+            <button id="printReportBtn" class="btn">Imprimir</button>
+            <!-- Imprime el reporte (abre ventana nueva y llama window.print()) -->
+        </div>
+      </div>
+
+      <form id="createForm" class="form grid">
+        <!-- Formulario para crear tareas; JS intercepta submit y hace POST /tasks -->
+
+        <label>
+          Título
+          <input id="newTitle" type="text" minlength="3" maxlength="80" placeholder="Ej: Entregar proyecto" required />
+          <!-- Título con validación HTML: mínimo 3, máximo 80 -->
+        </label>
+
+        <label>
+          Estado
+          <select id="newStatus">
+            <option value="PENDING">PENDING</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="DONE">DONE</option>
+          </select>
+          <!-- Estado inicial de la tarea (coincide con los Literals del backend) -->
+        </label>
+
+        <label class="span2">
+          Descripción (opcional)
+          <input id="newDesc" type="text" maxlength="300" placeholder="Ej: incluir docker-compose, backups y diagramas" />
+          <!-- Descripción opcional (máx 300) -->
+        </label>
+
+        <button class="btn primary span2" type="submit">Crear tarea</button>
+        <!-- Envía el formulario de creación -->
+      </form>
+
+      <div id="appMsg" class="msg"></div>
+      <!-- Mensajes generales de la app (creación ok, errores, etc.) -->
+
+      <div class="split">
+        <!-- Layout dividido en dos columnas: lista de tareas y reporte -->
+
+        <div>
+          <h3 class="h3">Lista</h3>
+          <div id="tasksList" class="list"></div>
+          <!-- Contenedor donde JS renderiza la lista de tareas -->
+        </div>
+
+        <div>
+          <h3 class="h3">Reporte combinado</h3>
+          <p class="muted small">
+            Este reporte mezcla tareas (Postgres) + último cambio (Mongo).
+          </p>
+          <!-- Descripción del reporte (origen de datos) -->
+
+          <div id="reportBox" class="report"></div>
+          <!-- Contenedor donde JS renderiza el reporte como tabla -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <!-- Pie de página simple -->
+
+    <span class="muted small">Frontend simple para demo académica • Swagger sigue en /docs</span>
+    <!-- Nota: la documentación del backend está disponible en /docs -->
+  </footer>
+
+  <script src="app.js"></script>
+  <!-- Carga el script principal del frontend (maneja auth, tareas, reporte, etc.) -->
+</body>
+</html>

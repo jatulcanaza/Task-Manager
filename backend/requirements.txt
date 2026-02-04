@@ -1,0 +1,31 @@
+fastapi==0.115.6
+# Framework web ASGI para construir APIs (endpoints, dependencias, validación con Pydantic, OpenAPI/Swagger, etc.)
+
+uvicorn[standard]==0.34.0
+# Servidor ASGI para ejecutar FastAPI en producción/desarrollo
+# [standard] instala extras comunes (mejoras de rendimiento y dependencias útiles como watchfiles, etc.)
+
+pydantic==2.10.4
+# Librería de validación y parsing de datos (modelos BaseModel, validadores, etc.)
+# Usada para DTOs/Esquemas de request/response
+
+pydantic-settings==2.7.1
+# Extensión para manejar configuración vía variables de entorno usando modelos Pydantic (BaseSettings)
+
+SQLAlchemy==2.0.36
+# ORM y toolkit SQL para interactuar con la base de datos relacional (PostgreSQL en este proyecto)
+
+psycopg2-binary==2.9.10
+# Driver PostgreSQL para Python (paquete binario precompilado)
+# Se usa junto con SQLAlchemy para conectarse a PostgreSQL
+
+pymongo==4.10.1
+# Cliente oficial de MongoDB para Python
+# Se usa para escribir/consultar logs en Mongo
+
+python-jose==3.3.0
+# Implementación JOSE para manejo de JWT (encode/decode, validación, expiración, etc.)
+
+bcrypt==4.1.3
+# Hashing seguro de contraseñas (bcrypt)
+# Se usa para hashear passwords y verificar credenciales en login

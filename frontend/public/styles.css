@@ -1,0 +1,275 @@
+:root {
+  /* Variables CSS (design tokens) para mantener colores/sombras consistentes en toda la UI */
+  --bg: #0b1020;                         /* Color base de fondo */
+  --card: rgba(255,255,255,0.06);        /* Fondo semitransparente para cards */
+  --card2: rgba(255,255,255,0.08);       /* Variante un poco más visible para items */
+  --text: rgba(255,255,255,0.92);        /* Color principal del texto */
+  --muted: rgba(255,255,255,0.65);       /* Texto secundario/atenuado */
+  --border: rgba(255,255,255,0.12);      /* Color de bordes/lineas */
+  --danger: #ff4d6d;                     /* Color para error/peligro */
+  --ok: #34d399;                         /* Color para éxito/ok */
+  --shadow: 0 12px 40px rgba(0,0,0,0.35);/* Sombra estándar para elevar cards */
+}
+
+* { box-sizing: border-box; }
+/* box-sizing global para que padding/border no rompan anchos (más fácil maquetar) */
+
+body {
+  margin: 0; /* Elimina márgenes por defecto del navegador */
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; /* Stack tipográfico moderno */
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.35), transparent),
+              radial-gradient(1200px 600px at 80% 0%, rgba(16,185,129,0.25), transparent),
+              var(--bg);
+  /* Fondo: dos gradientes radiales decorativos + color base */
+  color: var(--text); /* Color de texto global */
+}
+
+.topbar {
+  display:flex; /* Layout horizontal */
+  align-items:center; /* Centra verticalmente */
+  justify-content:space-between; /* Separación marca izquierda vs acciones derecha */
+  padding: 18px 22px; /* Espaciado interno */
+  border-bottom: 1px solid var(--border); /* Línea inferior separadora */
+  background: rgba(0,0,0,0.18); /* Fondo translúcido */
+  backdrop-filter: blur(10px); /* Efecto vidrio (si el navegador lo soporta) */
+  position: sticky; /* Se queda pegado arriba al hacer scroll */
+  top: 0; /* Punto de anclaje sticky */
+}
+
+.brand { display:flex; gap: 12px; align-items:center; }
+/* Contenedor marca: logo + textos, con separación y alineación */
+
+.logo {
+  width: 42px; height: 42px; /* Tamaño del logo */
+  border-radius: 14px;       /* Esquinas redondeadas */
+  display:grid; place-items:center; /* Centra contenido con grid */
+  background: rgba(255,255,255,0.10); /* Fondo suave */
+  border: 1px solid var(--border);    /* Borde sutil */
+  font-weight: 800;                   /* Letras gruesas (TM) */
+}
+
+.title { font-weight: 800; letter-spacing: 0.2px; }
+/* Título fuerte con leve tracking */
+
+.subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* Subtítulo pequeño y atenuado */
+
+.right { display:flex; gap: 10px; align-items:center; }
+/* Zona derecha del topbar: whoami + botón salir */
+
+.whoami { color: var(--muted); font-size: 12px; }
+/* Texto de sesión en estilo muted */
+
+.container {
+  max-width: 980px; /* Ancho máximo para no estirar demasiado en pantallas grandes */
+  margin: 28px auto; /* Centrado con separación superior */
+  padding: 0 16px;   /* Padding lateral para móviles */
+}
+
+.card {
+  background: var(--card);            /* Fondo de card */
+  border: 1px solid var(--border);    /* Borde sutil */
+  border-radius: 18px;                /* Redondeo */
+  padding: 18px;                      /* Espaciado interno */
+  box-shadow: var(--shadow);          /* Sombra */
+}
+
+h2 { margin: 0 0 10px; }
+/* Ajuste de margen para títulos h2 */
+
+.h3 {
+  margin: 12px 0 10px;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: .6px;
+  text-transform: uppercase;
+}
+/* Encabezado estilo "sección" (no es h3 semántico, es clase visual) */
+
+.small { font-size: 12px; } /* Texto pequeño */
+.muted { color: var(--muted); } /* Texto atenuado */
+.hint { margin-top: 10px; color: var(--muted); font-size: 12px; } /* Texto de ayuda */
+
+.tabs { display:flex; gap: 10px; margin: 12px 0; }
+/* Contenedor de tabs (login/register) */
+
+.tab {
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  cursor: pointer;
+}
+/* Botón-tab base */
+
+.tab.active { background: rgba(255,255,255,0.12); }
+/* Estado activo del tab */
+
+.form { display:flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+/* Formulario vertical por defecto */
+
+.form.grid {
+  display:grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+  align-items: end;
+}
+/* Formulario tipo grid (título + estado lado a lado; descripción/botón en span) */
+
+label { display:flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+/* Labels: apilan texto + input, y el texto es muted */
+
+input, select {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.25);
+  color: var(--text);
+  outline: none; /* Quita el outline por defecto (se reemplaza con border-color en focus) */
+}
+
+input:focus, select:focus { border-color: rgba(99,102,241,0.7); }
+/* Feedback visual al enfocar inputs (borde violeta) */
+
+.btn {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+  cursor: pointer;
+}
+/* Botón base */
+
+.btn:hover { background: rgba(255,255,255,0.12); }
+/* Hover para botones */
+
+.btn.primary { background: rgba(99,102,241,0.35); border-color: rgba(99,102,241,0.55); }
+/* Botón principal (acciones importantes) */
+
+.btn.primary:hover { background: rgba(99,102,241,0.50); }
+/* Hover del botón principal */
+
+.btn.ghost { background: transparent; }
+/* Botón tipo ghost (sin fondo) */
+
+.btn.danger { background: rgba(255,77,109,0.18); border-color: rgba(255,77,109,0.35); }
+/* Botón de peligro (ej. eliminar) */
+
+.btn.danger:hover { background: rgba(255,77,109,0.28); }
+/* Hover del botón peligro */
+
+.row { display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+/* Layout fila: título a la izquierda, acciones a la derecha */
+
+.row-actions { display:flex; gap: 10px; }
+/* Agrupación de botones en fila */
+
+.msg { min-height: 18px; margin-top: 8px; font-size: 13px; }
+/* Caja para mensajes: min-height evita saltos de layout cuando aparece/desaparece texto */
+
+.msg.ok { color: var(--ok); }       /* Mensaje de éxito */
+.msg.err { color: var(--danger); }  /* Mensaje de error */
+
+.hidden { display:none !important; }
+/* Clase utilitaria para ocultar elementos (usada por JS para alternar vistas) */
+
+.split {
+  display:grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+/* Layout de dos columnas: lista (más ancha) y reporte (más angosta) */
+
+.list { display:flex; flex-direction: column; gap: 10px; }
+/* Contenedor de lista (items apilados) */
+
+.item {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+}
+/* Caja de cada tarea */
+
+.item-top { display:flex; justify-content: space-between; gap: 10px; }
+/* Cabecera del item: info izquierda, badge derecha */
+
+.item-title { font-weight: 800; }
+/* Título fuerte dentro de la tarea */
+
+.item-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+/* Descripción/metadata de la tarea */
+
+.item-actions { display:flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* Botonera por tarea (cambia estado / eliminar), con wrap para pantallas pequeñas */
+
+.badge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(0,0,0,0.20);
+}
+/* Badge/píldora para estado */
+
+.report {
+  background: rgba(0,0,0,0.22);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 120px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow: auto;        /* Permite scroll si el reporte es grande */
+  white-space: pre-wrap; /* Mantiene saltos de línea/espacios si hay contenido tipo texto */
+}
+/* Contenedor del reporte */
+
+.span2 { grid-column: span 2; }
+/* Utilidad para que un elemento ocupe dos columnas en el form grid */
+
+.footer {
+  text-align: center;
+  padding: 18px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+/* Pie de página */
+
+@media (max-width: 860px) {
+  /* Responsivo: en pantallas pequeñas apila todo en una sola columna */
+  .split { grid-template-columns: 1fr; }
+  .form.grid { grid-template-columns: 1fr; }
+  .span2 { grid-column: span 1; }
+}
+
+.rtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+/* Tabla del reporte: ocupa todo el ancho y colapsa bordes */
+
+.rtable th, .rtable td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+/* Celdas con borde inferior y padding */
+
+.rtable th {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .3px;
+}
+/* Encabezados de tabla con estilo muted */
+
+.rtable tr:hover td {
+  background: rgba(255,255,255,0.04);
+}
+/* Hover en filas para mejorar lectura al pasar el mouse */
