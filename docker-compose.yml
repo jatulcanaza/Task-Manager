@@ -58,13 +58,10 @@ services:
     ports:
       - "1883:1883"
     volumes:
-      # monta archivo exacto (read-only)
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      # persistencia recomendada
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     healthcheck:
-      # no depende de nc/curl
       test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -W 2 >/dev/null 2>&1 || exit 1"]
       interval: 5s
       timeout: 5s
@@ -72,43 +69,37 @@ services:
     restart: unless-stopped
 
   backend:
-    build: ./backend
+    image: juantulcanaza/taskmanager-backend:qa
     container_name: taskmanager-backend
     ports:
       - "8000:8000"
     environment:
-      # POSTGRES
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
 
-      # MONGO
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
       MONGO_HOST: mongo
       MONGO_PORT: 27017
       MONGO_DB: ${MONGO_DB}
 
-      # AUTH / CORS
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN}
       CORS_ORIGINS: "http://localhost:8080,http://localhost:8081"
 
-      # RabbitMQ
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASS: ${RABBITMQ_PASS}
       RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/"
 
-      # MQTT
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
       MQTT_TOPIC: ${MQTT_TOPIC}
 
-      # SMTP + ADMIN
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
@@ -125,12 +116,10 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_healthy
-
     restart: unless-stopped
 
-  # WEB A
   frontend:
-    build: ./frontend
+    image: juantulcanaza/taskmanager-frontend:qa
     container_name: taskmanager-frontend-a
     ports:
       - "8080:80"
@@ -138,9 +127,8 @@ services:
       - backend
     restart: unless-stopped
 
-  # WEB B
   frontend_b:
-    build: ./frontend_b
+    image: juantulcanaza/taskmanager-frontend-b:qa
     container_name: taskmanager-frontend-b
     ports:
       - "8081:80"
