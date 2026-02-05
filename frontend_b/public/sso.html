@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>SSO - Web B</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h2>Entrando por SSO...</h2>
+  <pre id="msg"></pre>
+
+  <script>
+    const API = `http://${window.location.hostname}:8000`;
+    const msg = document.getElementById("msg");
+
+    function setToken(t){ localStorage.setItem("token_b", t); }
+
+    function getQS(name){
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name);
+    }
+
+    function clearTokenFromUrl(){
+      const u = new URL(window.location.href);
+      u.searchParams.delete("token");
+      window.history.replaceState({}, "", u.toString());
+    }
+
+    (async function(){
+      try{
+        const sso = getQS("token");
+        if(!sso) throw new Error("Falta token en URL (?token=...)");
+
+        const res = await fetch(API + "/sso/consume", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ sso_token: sso })
+        });
+
+        const txt = await res.text();
+        let data = null;
+        try { data = txt ? JSON.parse(txt) : null; }
+        catch { data = txt; }
+
+        if(!res.ok){
+          throw new Error(typeof data === "string" ? data : JSON.stringify(data));
+        }
+
+        if(!data?.access_token){
+          throw new Error("Respuesta de /sso/consume no trae access_token");
+        }
+
+        setToken(data.access_token);
+
+        // ✅ evita dejar el token SSO visible en la URL/historial
+        clearTokenFromUrl();
+
+        // ✅ redirige a dashboard
+        window.location.href = "/dashboard.html";
+      }catch(e){
+        msg.textContent = "SSO error: " + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>

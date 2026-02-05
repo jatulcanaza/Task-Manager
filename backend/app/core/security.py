@@ -2,7 +2,10 @@ from datetime import datetime, timedelta  # Manejo de fechas para expiración de
 from jose import jwt, JWTError  # jwt para encode/decode; JWTError para capturar errores de validación
 import bcrypt  # Librería de hashing seguro para contraseñas
 from app.core.config import settings  # Acceso a variables de configuración (JWT_SECRET, JWT_EXPIRES_MIN, etc.)
+import uuid
 
+SSO_ISSUER = "task-manager-auth"
+SSO_AUDIENCE = "web-b"
 # Algoritmo de firma del JWT (HMAC + SHA-256)
 ALGO = "HS256"
 
@@ -58,3 +61,28 @@ def decode_token(token: str) -> str:
     except JWTError as e:
         # Se encapsula el error original de jose en un ValueError más simple para el resto de la app
         raise ValueError("Token inválido") from e
+    
+def create_sso_token(sub: str, minutes: int = 2) -> str:
+    exp = datetime.utcnow() + timedelta(minutes=minutes)
+    payload = {
+        "sub": sub,
+        "exp": exp,
+        "iat": datetime.utcnow(),
+        "iss": SSO_ISSUER,
+        "aud": SSO_AUDIENCE,
+        "jti": str(uuid.uuid4())
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=ALGO)
+
+def decode_sso_token(token: str) -> str:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[ALGO],
+            audience=SSO_AUDIENCE,
+            issuer=SSO_ISSUER
+        )
+        return payload["sub"]
+    except JWTError as e:
+        raise ValueError("SSO token inválido") from e

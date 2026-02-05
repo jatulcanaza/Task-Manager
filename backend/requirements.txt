@@ -29,3 +29,6 @@ python-jose==3.3.0
 bcrypt==4.1.3
 # Hashing seguro de contraseñas (bcrypt)
 # Se usa para hashear passwords y verificar credenciales en login
+aio-pika==9.4.3
+paho-mqtt==2.1.0
+aiosmtplib==3.0.2

@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Web B - Dashboard</title></head>
+<link rel="stylesheet" href="/styles.css">
+
+<body>
+  <div class="header">
+    <div><b>Web B</b> - Dashboard</div>
+    <a href="/login.html">Login normal</a>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <button class="btn" id="loadStats">Cargar Stats Accesos</button>
+      <button class="btn" id="loadReport">Reporte tareas + último cambio</button>
+    </div>
+
+    <div class="card">
+      <h3>Eventos en vivo (WebSocket)</h3>
+      <pre id="events"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Stats Accesos (SSO vs Normal)</h3>
+      <pre id="stats"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Reporte</h3>
+      <pre id="report"></pre>
+    </div>
+  </div>
+
+  <script src="/b.js"></script>
+</body>

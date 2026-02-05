@@ -25,6 +25,30 @@ class Settings(BaseSettings):
     JWT_SECRET: str              # Secreto para firmar/verificar tokens JWT (NO debe ir hardcodeado)
     JWT_EXPIRES_MIN: int = 60    # Minutos de expiración del JWT (valor por defecto: 60)
 
+    # RabbitMQ
+    RABBITMQ_HOST: str = "rabbitmq"
+    RABBITMQ_PORT: int = 5672
+    RABBITMQ_USER: str = "guest"
+    RABBITMQ_PASS: str = "guest"
+
+    # MQTT
+    MQTT_HOST: str = "mosquitto"
+    MQTT_PORT: int = 1883
+    MQTT_TOPIC: str = "task/events"
+
+    # SMTP
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_FROM: str = "TaskManager <nutrygym.uce@gmail.com>"
+
+
+    # Admin notify
+    ADMIN_NOTIFY_TO: str = ""
+
+
+
     # ---------- Configuración de CORS ----------
     CORS_ORIGINS: str = "http://localhost:8080"  # Origen permitido para CORS (ej: frontend local)
 

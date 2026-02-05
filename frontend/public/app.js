@@ -1,5 +1,5 @@
 // Cambia esto si tu backend está en otro host/puerto
-const API = "http://localhost:8000"; // URL base del backend (FastAPI)
+const API = `http://${window.location.hostname}:8000`; // URL base del backend (FastAPI)
 
 // Helper para obtener elementos del DOM por id
 const el = (id) => document.getElementById(id);
@@ -52,12 +52,14 @@ function isUceEmail(email) {
 }
 
 function getToken() {
-  // Obtiene el token JWT guardado en localStorage (si existe)
-  return localStorage.getItem("token") || "";
+  const t = localStorage.getItem("token") || "";
+  // evita casos tipo "undefined" o "null"
+  if (t === "undefined" || t === "null") return "";
+  return t;
 }
 
 function setToken(t) {
-  // Guarda el token JWT en localStorage para mantener sesión
+  if (!t || t === "undefined" || t === "null") return;
   localStorage.setItem("token", t);
 }
 
@@ -159,25 +161,33 @@ authForm.addEventListener("submit", async (e) => {
   }
 
   try {
-    // Define endpoint según modo actual
     const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
 
-    // Llama API para obtener token
     const data = await apiFetch(endpoint, {
       method: "POST",
-      headers: {}, // apiFetch setea headers
+      headers: {},
       body: JSON.stringify({ email, password })
     });
 
-    // Guarda token y cambia a vista de app
-    setToken(data.access_token);
+    const access =
+      data?.access_token ||
+      data?.token ||
+      data?.jwt ||
+      data?.data?.access_token ||
+      "";
+
+    if (!access) {
+      throw new Error("No se recibió access_token del backend. Revisa la respuesta de /auth/login.");
+    }
+
+    setToken(access);
     setMsg(authMsg, "Listo ✅ Token guardado.", "ok");
     showApp(email);
     await loadTasks();
   } catch (err) {
-    // Muestra error en el card de auth
     setMsg(authMsg, err.message, "err");
   }
+
 });
 
 // Logout: limpia token + UI
@@ -440,4 +450,54 @@ function renderReport(rows) {
   } else {
     showAuth();
   }
+  connectWS();
+
 })();
+function connectWS() {
+  const host = window.location.hostname;
+  const ws = new WebSocket(`ws://${host}:8000/ws/reports`);
+
+  ws.onopen = () => console.log("WS conectado");
+  ws.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      // aquí haces lo que quieras: refrescar tasks, refrescar reporte, mostrar toaster
+      console.log("Evento:", data);
+      // ejemplo: recarga tareas para ver cambios live
+      loadTasks();
+    } catch {}
+  };
+  ws.onclose = () => {
+    console.log("WS desconectado, reintentando...");
+    setTimeout(connectWS, 2000);
+  };
+}
+
+const goSSOBtn = el("goSSOBtn");
+
+async function goToWebBSSO() {
+  // mensajes: si estás logueado usa appMsg, si no usa authMsg
+  const msgBox = appCard.classList.contains("hidden") ? authMsg : appMsg;
+
+  setMsg(msgBox, "");
+  try {
+    const t = getToken();
+    if (!t) {
+      setMsg(msgBox, "Primero inicia sesión para usar SSO.", "err");
+      return;
+    }
+
+    // 1) Pide token corto SSO
+    const data = await apiFetch("/sso/token", { method: "POST" });
+    const ssoToken = data?.sso_token || "";
+    if (!ssoToken) throw new Error("El backend no devolvió sso_token.");
+
+    // 2) Redirige a Web B con el token en la URL
+    const host = window.location.hostname; // localhost
+    window.location.href = `http://${host}:8081/sso.html?token=${encodeURIComponent(ssoToken)}`;
+  } catch (err) {
+    setMsg(msgBox, "SSO falló: " + err.message, "err");
+  }
+}
+
+if (goSSOBtn) goSSOBtn.addEventListener("click", goToWebBSSO);

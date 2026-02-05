@@ -28,3 +28,7 @@ def tasks_with_last_change(db: Session = Depends(db_session), user_id: UUID = De
     """
     svc = ReportService(PostgresFactory(db), MongoFactory(get_mongo_db()))  # Servicio con ambas fuentes de datos
     return svc.tasks_with_last_change(user_id)  # Ejecuta el caso de uso del reporte para el usuario actual
+@router.get("/access-stats")
+def access_stats():
+    svc = MongoFactory(get_mongo_db()).access_log_dao()
+    return svc.stats()
