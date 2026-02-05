@@ -88,7 +88,7 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN}
-      CORS_ORIGINS: "http://localhost:8080,http://localhost:8081"
+      CORS_ORIGINS: ${CORS_ORIGINS}
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
