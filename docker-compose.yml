@@ -100,13 +100,6 @@ services:
       MQTT_PORT: 1883
       MQTT_TOPIC: ${MQTT_TOPIC}
 
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASS: ${SMTP_PASS}
-      SMTP_FROM: ${SMTP_FROM}
-      ADMIN_NOTIFY_TO: ${ADMIN_NOTIFY_TO}
-
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,7 +112,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: juantulcanaza/taskmanager-frontend:qa
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: taskmanager-frontend-a
     ports:
       - "8080:80"
@@ -128,7 +123,9 @@ services:
     restart: unless-stopped
 
   frontend_b:
-    image: juantulcanaza/taskmanager-frontend-b:qa
+    build:
+      context: ./frontend_b
+      dockerfile: Dockerfile
     container_name: taskmanager-frontend-b
     ports:
       - "8081:80"

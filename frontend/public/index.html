@@ -1,188 +1,215 @@
 <!doctype html>
-<!-- Documento HTML5 (doctype corto) -->
-
 <html lang="es">
-<!-- Idioma principal del documento: español (mejora accesibilidad/SEO) -->
-
 <head>
   <meta charset="utf-8" />
-  <!-- Codificación UTF-8 para soportar caracteres especiales (tildes, ñ, etc.) -->
-
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Hace el layout responsivo en móviles (escala inicial 1) -->
-
-  <title>Task Manager</title>
-  <!-- Título que aparece en la pestaña del navegador -->
-
+  <title>Task Manager UCE</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- Hoja de estilos principal -->
 </head>
 
 <body>
   <header class="topbar">
-    <!-- Barra superior fija/encabezado de la app -->
-
     <div class="brand">
-      <!-- Bloque de marca (logo + texto) -->
-
-      <div class="logo">TM</div>
-      <!-- Logo simple (iniciales) -->
-
-      <div>
-        <div class="title">Task Manager</div>
-        <!-- Nombre de la aplicación -->
-
-        <div class="subtitle">PostgreSQL + MongoDB • FastAPI</div>
-        <!-- Subtítulo/stack tecnológico -->
+      <img class="brand-logo img-logo" src="logo.png" alt="Logo" />
+      <div class="brand-text">
+        <div class="title">Task Manager UCE</div>
+        <div class="subtitle">Sistema de Gestión de Tareas</div>
       </div>
     </div>
 
     <div class="right">
-      <!-- Área derecha del header (estado de sesión + botón salir) -->
+      <!-- Theme toggle -->
+      <div class="theme-toggle" title="Cambiar tema">
+        <span class="theme-label" aria-hidden="true">🌙</span>
+        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+          <span class="switch-knob"></span>
+        </button>
+      </div>
 
       <div id="whoami" class="whoami"></div>
-      <!-- Se llena por JS para mostrar info de sesión (email o "Sesión activa") -->
-
-      <button id="logoutBtn" class="btn ghost hidden">Salir</button>
-      <!-- Botón de logout (inicia oculto y se muestra tras login) -->
+      <button id="logoutBtn" class="btn ghost hidden" type="button">Salir</button>
     </div>
   </header>
 
+  <!-- Toast notifications -->
+  <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Modal (reemplaza confirm() del navegador) -->
+  <div id="modalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title" id="modalTitle">Confirmar</div>
+        <button id="modalClose" class="icon-btn" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody">¿Seguro?</div>
+      <div class="modal-actions">
+        <button id="modalCancel" class="btn" type="button">Cancelar</button>
+        <button id="modalOk" class="btn danger" type="button">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
   <main class="container">
-    <!-- Contenedor principal de la app -->
+    <!-- AUTH -->
+    <section id="authCard" class="auth-shell">
+      <!-- LEFT: logo centrado -->
+      <aside class="auth-left">
+        <div class="left-center">
+          <img class="left-logo" src="logo.png" alt="Task Manager UCE" />
+          <div class="left-name">Task Manager UCE</div>
+          <div class="left-tag">Acceso institucional</div>
+        </div>
+      </aside>
 
-    <section id="authCard" class="card">
-      <!-- Card/Sección de autenticación (login/registro) -->
+      <!-- RIGHT: login -->
+      <section class="auth-right">
+        <div class="auth-top-actions">
+          <button id="tabLoginTop" class="top-pill active" type="button">Iniciar sesión</button>
+          <button id="tabRegisterTop" class="top-pill" type="button">Registrarse</button>
+        </div>
 
-      <h2>Inicia sesión / Regístrate</h2>
-      <p class="muted">Solo correos <b>@uce.edu.ec</b>. Tu token se guarda en el navegador.</p>
-      <!-- Mensaje informativo: validación de dominio y persistencia del token en localStorage -->
+        <div class="auth-head">
+          <div class="auth-head-title" id="authHeadTitle">
+            <span id="signinLabel" class="auth-head-strong">Iniciar sesión</span>
+            <span class="auth-head-sep">o</span>
+            <span id="signupLabel" class="auth-head-muted">Registrarse</span>
+          </div>
 
-      <div class="tabs">
-        <!-- Tabs para cambiar entre modo Login y Register (controlado por JS) -->
+          <!-- underline dinámica -->
+          <div class="auth-underline-wrap">
+            <div id="authUnderline" class="auth-underline" aria-hidden="true"></div>
+          </div>
+        </div>
 
-        <button id="tabLogin" class="tab active">Login</button>
-        <!-- Tab de login (por defecto activo) -->
-        <button id="tabRegister" class="tab">Register</button>
-        <!-- Tab de registro -->
-       
+        <!-- Tabs legacy (solo para compatibilidad de ids; 100% ocultos) -->
+        <div class="sr-only" aria-hidden="true">
+          <button id="tabLogin" class="tab active" type="button">Login</button>
+          <button id="tabRegister" class="tab" type="button">Registro</button>
+        </div>
 
-      </div>
+        <form id="authForm" class="form auth-form" novalidate>
+          <label class="field">
+            <span class="field-label">CORREO</span>
+            <input id="email" type="email" placeholder="tu correo @uce.edu.ec" autocomplete="email" />
+            <div class="field-hint" id="emailHint">Ejemplo: juan.perez@uce.edu.ec</div>
+          </label>
 
-      <form id="authForm" class="form">
-        <!-- Formulario de autenticación; JS intercepta submit para llamar al backend -->
+          <label class="field">
+            <span class="field-label">CONTRASEÑA</span>
+            <input id="password" type="password" placeholder="********" autocomplete="current-password" />
+            <div class="field-hint" id="passHint">Mínimo 8 caracteres, 1 mayúscula y 1 número.</div>
+          </label>
 
-        <label>
-          Email institucional
-          <input id="email" type="email" placeholder="nombre@uce.edu.ec" required />
-          <!-- Input email: required fuerza validación HTML5 básica -->
-        </label>
+          <!-- Mostrar contraseña alineado izquierda -->
+          <label class="showpass-row" for="showPass">
+            <input id="showPass" type="checkbox" />
+            <span>Mostrar contraseña</span>
+          </label>
 
-        <label>
-          Contraseña
-          <input id="password" type="password" placeholder="Mínimo 8, 1 mayúscula y 1 número" required />
-          <!-- Input password: required + placeholder con reglas esperadas -->
-        </label>
 
-        <button id="authSubmit" class="btn primary" type="submit">Entrar</button>
-        <!-- Botón submit; el texto cambia según modo (Entrar / Crear cuenta) por JS -->
-      </form>
+          <button id="authSubmit" class="btn primary pill full" type="submit">
+            <span class="btn-text">Entrar</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
 
-      <div id="authMsg" class="msg"></div>
-      <!-- Contenedor para mostrar mensajes de auth (errores/ok), seteado por JS -->
-
-      <div class="hint">
-        Tip: si ya te registraste, usa Login. Si te equivocas, verás el error aquí abajo.
-      </div>
-      <!-- Ayuda breve para el usuario -->
+          <div id="authMsg" class="msg" role="status" aria-live="polite"></div>
+        </form>
+      </section>
     </section>
 
+    <!-- APP -->
     <section id="appCard" class="card hidden">
-      <!-- Card/Sección principal de la app: tareas + reporte
-           Inicia oculta (hidden) y se muestra al autenticarse -->
-
       <div class="row">
-        <!-- Cabecera de la sección de tareas: título + acciones -->
-
-        <h2>Mis tareas</h2>
+        <div>
+          <h2 class="card-title">Mis tareas</h2>
+          <div class="muted small">Crea, actualiza, elimina y revisa el reporte combinado.</div>
+        </div>
 
         <div class="row-actions">
-            <button id="refreshBtn" class="btn">Actualizar</button>
-            <!-- Recarga tareas (GET /tasks) -->
+          <button id="refreshBtn" class="btn primary" type="button">
+            <span class="btn-text">Actualizar</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
 
-            <button id="reportBtn" class="btn ghost">Ver reporte</button>
-            <!-- Carga reporte combinado (GET /reports/tasks-with-last-change) -->
+          <button id="reportBtn" class="btn" type="button">
+            <span class="btn-text">Ver reporte</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
 
-            <button id="printReportBtn" class="btn">Imprimir</button>
-            <!-- Imprime el reporte (abre ventana nueva y llama window.print()) -->
-
-            <button id="goSSOBtn" class="btn">Ir a Web B (SSO)</button>
+          <button id="printReportBtn" class="btn ghost" type="button">Imprimir</button>
+          <button id="goSSOBtn" class="btn ghost" type="button">Ir a Web B (SSO)</button>
         </div>
       </div>
 
-      <form id="createForm" class="form grid">
-        <!-- Formulario para crear tareas; JS intercepta submit y hace POST /tasks -->
-
-        <label>
-          Título
-          <input id="newTitle" type="text" minlength="3" maxlength="80" placeholder="Ej: Entregar proyecto" required />
-          <!-- Título con validación HTML: mínimo 3, máximo 80 -->
+      <form id="createForm" class="form grid" novalidate>
+        <label class="tfield">
+          <span class="tlabel">Título</span>
+          <input id="newTitle" type="text" minlength="3" maxlength="80" placeholder="Ej: Entregar proyecto" />
+          <div class="field-hint">Mínimo 3 caracteres, máximo 80.</div>
         </label>
 
-        <label>
-          Estado
+        <label class="tfield">
+          <span class="tlabel">Estado</span>
           <select id="newStatus">
             <option value="PENDING">PENDING</option>
             <option value="IN_PROGRESS">IN_PROGRESS</option>
             <option value="DONE">DONE</option>
           </select>
-          <!-- Estado inicial de la tarea (coincide con los Literals del backend) -->
+          <div class="field-hint">Define el estado inicial.</div>
         </label>
 
-        <label class="span2">
-          Descripción (opcional)
-          <input id="newDesc" type="text" maxlength="300" placeholder="Ej: incluir docker-compose, backups y diagramas" />
-          <!-- Descripción opcional (máx 300) -->
+        <label class="tfield span2">
+          <span class="tlabel">Descripción (opcional)</span>
+          <input id="newDesc" type="text" maxlength="300" placeholder="Ej: docker-compose, backups y diagramas" />
+          <div class="field-hint">Máximo 300 caracteres.</div>
         </label>
 
-        <button class="btn primary span2" type="submit">Crear tarea</button>
-        <!-- Envía el formulario de creación -->
+        <button id="createBtn" class="btn primary pill span2" type="submit">
+          <span class="btn-text">Crear tarea</span>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
       </form>
 
-      <div id="appMsg" class="msg"></div>
-      <!-- Mensajes generales de la app (creación ok, errores, etc.) -->
+      <div id="appMsg" class="msg" role="status" aria-live="polite"></div>
 
       <div class="split">
-        <!-- Layout dividido en dos columnas: lista de tareas y reporte -->
-
         <div>
-          <h3 class="h3">Lista</h3>
+          <div class="section-title">
+            <h3 class="h3">Lista</h3>
+            <div class="chip">Live updates (WS)</div>
+          </div>
           <div id="tasksList" class="list"></div>
-          <!-- Contenedor donde JS renderiza la lista de tareas -->
         </div>
 
         <div>
-          <h3 class="h3">Reporte combinado</h3>
+          <div class="section-title">
+            <h3 class="h3">Reporte combinado</h3>
+            <div class="chip">Postgres + Mongo</div>
+          </div>
+
           <p class="muted small">
             Este reporte mezcla tareas (Postgres) + último cambio (Mongo).
           </p>
-          <!-- Descripción del reporte (origen de datos) -->
 
-          <div id="reportBox" class="report"></div>
-          <!-- Contenedor donde JS renderiza el reporte como tabla -->
+          <div id="reportBox" class="report">
+            <div class="empty">
+              <div class="empty-ico">📊</div>
+              <div>
+                <div class="empty-title">Aún no hay reporte</div>
+                <div class="empty-sub">Presiona <b>Ver reporte</b> para cargarlo.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   </main>
+  
 
   <footer class="footer">
-    <!-- Pie de página simple -->
-
-    <span class="muted small">Frontend simple para demo académica • Swagger sigue en /docs</span>
-    <!-- Nota: la documentación del backend está disponible en /docs -->
+    <span class="muted small">Todos los derechos reservados © 2026</span>
   </footer>
 
   <script src="app.js"></script>
-  <!-- Carga el script principal del frontend (maneja auth, tareas, reporte, etc.) -->
 </body>
 </html>

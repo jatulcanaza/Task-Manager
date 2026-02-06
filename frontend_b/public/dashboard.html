@@ -1,35 +1,114 @@
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Web B - Dashboard</title></head>
-<link rel="stylesheet" href="/styles.css">
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Web B - Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
 
 <body>
-  <div class="header">
-    <div><b>Web B</b> - Dashboard</div>
-    <a href="/login.html">Login normal</a>
-  </div>
-
-  <div class="container">
-    <div class="card">
-      <button class="btn" id="loadStats">Cargar Stats Accesos</button>
-      <button class="btn" id="loadReport">Reporte tareas + último cambio</button>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
+      <div class="brand-text">
+        <div class="title">Web B</div>
+        <div class="subtitle">Dashboard y Reportes</div>
+      </div>
     </div>
 
-    <div class="card">
-      <h3>Eventos en vivo (WebSocket)</h3>
-      <pre id="events"></pre>
-    </div>
+    <div class="right">
+      <div class="theme-toggle" title="Cambiar tema">
+        <span class="theme-label" aria-hidden="true">🌙</span>
+        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+          <span class="switch-knob"></span>
+        </button>
+      </div>
 
-    <div class="card">
-      <h3>Stats Accesos (SSO vs Normal)</h3>
-      <pre id="stats"></pre>
+      <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
+      <a class="btn" href="/login.html">Login normal</a>
     </div>
+  </header>
 
-    <div class="card">
-      <h3>Reporte</h3>
-      <pre id="report"></pre>
-    </div>
-  </div>
+  <main class="container">
+    <section class="card">
+      <div class="row">
+        <div>
+          <h2 class="card-title">Panel de monitoreo</h2>
+          <div class="muted small">SSO/Normal + Eventos en vivo + Reporte combinado.</div>
+        </div>
+
+        <div class="row-actions">
+          <button class="btn primary" id="loadStats" type="button">Cargar Stats Accesos</button>
+          <button class="btn" id="loadReport" type="button">Reporte tareas + último cambio</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ✅ RESPONSIVE PRO: 2 columnas en grande, 1 columna en mediano/pequeño -->
+    <section class="split split-b">
+      <!-- EVENTOS -->
+      <div class="card">
+        <div class="section-title">
+          <h3 class="h3">Eventos en vivo (WebSocket)</h3>
+          <div class="chip">WS</div>
+        </div>
+        <pre id="events" class="report"></pre>
+      </div>
+
+      <!-- ✅ STATS (se apila abajo cuando la pantalla es mediana/pequeña) -->
+      <div class="card">
+        <div class="section-title">
+          <h3 class="h3">Stats Accesos</h3>
+          <div class="chip">SSO vs Normal</div>
+        </div>
+        <pre id="stats" class="report"></pre>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h3 class="h3">Reporte</h3>
+        <div class="chip">Postgres + Mongo</div>
+      </div>
+      <pre id="report" class="report"></pre>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="muted small">Web B © 2026</span>
+  </footer>
+
+  <script>
+    const themeToggle = document.getElementById("themeToggle");
+    const backToA = document.getElementById("backToA");
+
+    // back to A (CAMBIA PUERTO SI ES NECESARIO)
+    (function(){
+      const host = window.location.hostname;
+      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
+    })();
+
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      const isDark = theme === "dark";
+      if (isDark) root.setAttribute("data-theme", "dark");
+      else root.removeAttribute("data-theme");
+      if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      const label = document.querySelector(".theme-label");
+      if (label) label.textContent = isDark ? "☀️" : "🌙";
+    }
+    function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+    function toggleTheme(){
+      const cur = getSavedTheme();
+      const next = cur === "dark" ? "light" : "dark";
+      localStorage.setItem("theme", next);
+      applyTheme(next);
+    }
+    applyTheme(getSavedTheme());
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+  </script>
 
   <script src="/b.js"></script>
 </body>
+</html>

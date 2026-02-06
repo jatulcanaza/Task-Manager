@@ -2,24 +2,83 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>SSO - Web B</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web B - SSO</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
-  <h2>Entrando por SSO...</h2>
-  <pre id="msg"></pre>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
+      <div class="brand-text">
+        <div class="title">Web B</div>
+        <div class="subtitle">SSO</div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="theme-toggle" title="Cambiar tema">
+        <span class="theme-label" aria-hidden="true">🌙</span>
+        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+          <span class="switch-knob"></span>
+        </button>
+      </div>
+
+      <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
+      <a class="btn" href="/login.html">Login normal</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2 class="card-title">Entrando por SSO...</h2>
+      <div class="muted small">Validando token y creando sesión en Web B.</div>
+      <div id="msg" class="msg" style="margin-top:12px;"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="muted small">Web B © 2026</span>
+  </footer>
 
   <script>
     const API = `http://${window.location.hostname}:8000`;
     const msg = document.getElementById("msg");
+    const themeToggle = document.getElementById("themeToggle");
+    const backToA = document.getElementById("backToA");
 
     function setToken(t){ localStorage.setItem("token_b", t); }
+
+    // back to A (CAMBIA PUERTO SI ES NECESARIO)
+    (function(){
+      const host = window.location.hostname;
+      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
+    })();
+
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      const isDark = theme === "dark";
+      if (isDark) root.setAttribute("data-theme", "dark");
+      else root.removeAttribute("data-theme");
+      if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      const label = document.querySelector(".theme-label");
+      if (label) label.textContent = isDark ? "☀️" : "🌙";
+    }
+    function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+    function toggleTheme(){
+      const cur = getSavedTheme();
+      const next = cur === "dark" ? "light" : "dark";
+      localStorage.setItem("theme", next);
+      applyTheme(next);
+    }
+    applyTheme(getSavedTheme());
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
 
     function getQS(name){
       const u = new URL(window.location.href);
       return u.searchParams.get(name);
     }
-
     function clearTokenFromUrl(){
       const u = new URL(window.location.href);
       u.searchParams.delete("token");
@@ -45,19 +104,18 @@
         if(!res.ok){
           throw new Error(typeof data === "string" ? data : JSON.stringify(data));
         }
-
         if(!data?.access_token){
           throw new Error("Respuesta de /sso/consume no trae access_token");
         }
 
         setToken(data.access_token);
-
-        // ✅ evita dejar el token SSO visible en la URL/historial
         clearTokenFromUrl();
 
-        // ✅ redirige a dashboard
-        window.location.href = "/dashboard.html";
+        msg.className = "msg ok";
+        msg.textContent = "SSO OK ✅ Redirigiendo al dashboard…";
+        setTimeout(()=> window.location.href = "/dashboard.html", 600);
       }catch(e){
+        msg.className = "msg err";
         msg.textContent = "SSO error: " + e.message;
       }
     })();

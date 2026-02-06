@@ -1,39 +1,219 @@
 <!doctype html>
-<html>
+<html lang="es">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Web B - Login</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
-  <h2>Web B - Login normal</h2>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
+      <div class="brand-text">
+        <div class="title">Web B</div>
+        <div class="subtitle">Dashboard + Reportes</div>
+      </div>
+    </div>
 
-  <form id="f">
-    <input id="email" placeholder="correo @uce.edu.ec" required />
-    <input id="password" type="password" placeholder="password" required />
-    <button type="submit">Entrar</button>
-  </form>
+    <div class="right">
+      <div class="theme-toggle" title="Cambiar tema">
+        <span class="theme-label" aria-hidden="true">🌙</span>
+        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+          <span class="switch-knob"></span>
+        </button>
+      </div>
 
-  <pre id="msg"></pre>
+      <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
+    </div>
+  </header>
+
+  <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+  <main class="container">
+    <section class="auth-shell">
+      <aside class="auth-left">
+        <div class="left-center">
+          <img class="left-logo" src="/logo.png" alt="Web B" />
+          <div class="left-name">Web B</div>
+          <div class="left-tag">Login normal / SSO</div>
+        </div>
+      </aside>
+
+      <section class="auth-right">
+        <div class="auth-top-actions">
+          <button class="top-pill active" type="button">Iniciar sesión</button>
+        </div>
+
+        <div class="auth-head">
+          <div class="auth-head-title">
+            <span class="auth-head-strong">Login normal</span>
+          </div>
+          <div class="auth-underline-wrap">
+            <div class="auth-underline" style="width:140px;"></div>
+          </div>
+        </div>
+
+        <form id="f" class="form auth-form" novalidate>
+          <label class="field">
+            <span class="field-label">CORREO</span>
+            <input id="email" type="email" placeholder="tu correo @uce.edu.ec" autocomplete="email" required />
+            <div class="field-hint">Ejemplo: juan.perez@uce.edu.ec</div>
+          </label>
+
+          <label class="field">
+            <span class="field-label">CONTRASEÑA</span>
+            <input id="password" type="password" placeholder="********" autocomplete="current-password" required />
+            <div class="field-hint">Tu contraseña.</div>
+          </label>
+
+          <label class="showpass-row" for="showPass">
+            <input id="showPass" type="checkbox" />
+            <span>Mostrar contraseña</span>
+          </label>
+
+          <button id="submitBtn" class="btn primary pill full" type="submit">
+            <span class="btn-text">Entrar</span>
+            <span class="spinner" aria-hidden="true"></span>
+          </button>
+
+          <div id="msg" class="msg" role="status" aria-live="polite"></div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="muted small">Web B © 2026</span>
+  </footer>
 
   <script>
     const API = `http://${window.location.hostname}:8000`;
-    const msg = document.getElementById("msg");
+
+    const toastHost = document.getElementById("toastHost");
+    const themeToggle = document.getElementById("themeToggle");
+    const backToA = document.getElementById("backToA");
+
     const f = document.getElementById("f");
     const email = document.getElementById("email");
     const password = document.getElementById("password");
+    const showPass = document.getElementById("showPass");
+    const msg = document.getElementById("msg");
+    const submitBtn = document.getElementById("submitBtn");
+
+    // ✅ volver a Web A (CAMBIA PUERTO SI ES NECESARIO)
+    (function(){
+      const host = window.location.hostname;
+      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
+    })();
 
     function setToken(t){ localStorage.setItem("token_b", t); }
 
+    // ---------- Theme ----------
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      const isDark = theme === "dark";
+      if (isDark) root.setAttribute("data-theme", "dark");
+      else root.removeAttribute("data-theme");
+      if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+      const label = document.querySelector(".theme-label");
+      if (label) label.textContent = isDark ? "☀️" : "🌙";
+    }
+    function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+    function toggleTheme(){
+      const cur = getSavedTheme();
+      const next = cur === "dark" ? "light" : "dark";
+      localStorage.setItem("theme", next);
+      applyTheme(next);
+    }
+    applyTheme(getSavedTheme());
+    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+
+    if (showPass) {
+      showPass.addEventListener("change", () => {
+        password.type = showPass.checked ? "text" : "password";
+      });
+    }
+
+    function setMsg(text, kind=""){
+      msg.className = "msg " + (kind || "");
+      msg.textContent = text || "";
+    }
+
+    function setLoading(btn, loading, textLoading="Entrando..."){
+      btn.disabled = loading;
+      btn.classList.toggle("loading", !!loading);
+      const t = btn.querySelector(".btn-text");
+      if (!btn.dataset._txt) btn.dataset._txt = t.textContent;
+      t.textContent = loading ? textLoading : btn.dataset._txt;
+    }
+
+    function toast(type, title, text, timeoutMs=3200){
+      if(!toastHost) return;
+      const node = document.createElement("div");
+      node.className = `toast ${type||"info"}`;
+
+      const ico = document.createElement("div");
+      ico.className = "toast-ico";
+      ico.textContent = type==="ok" ? "✓" : type==="err" ? "!" : "i";
+
+      const body = document.createElement("div");
+      body.className = "toast-body";
+      const tt = document.createElement("div");
+      tt.className = "toast-title";
+      tt.textContent = title || "Aviso";
+      const p = document.createElement("p");
+      p.className = "toast-text";
+      p.textContent = text || "";
+
+      const close = document.createElement("button");
+      close.className = "toast-close";
+      close.type = "button";
+      close.textContent = "✕";
+      close.onclick = () => node.remove();
+
+      body.appendChild(tt);
+      body.appendChild(p);
+      node.appendChild(ico);
+      node.appendChild(body);
+      node.appendChild(close);
+      toastHost.appendChild(node);
+
+      if(timeoutMs > 0){
+        setTimeout(()=> node?.parentNode && node.remove(), timeoutMs);
+      }
+    }
+
     f.addEventListener("submit", async (e) => {
       e.preventDefault();
-      msg.textContent = "";
+      setMsg("");
+
+      const em = email.value.trim().toLowerCase();
+      const pw = password.value || "";
+
+      if(!em){
+        toast("err","Falta el correo","Escribe tu correo institucional @uce.edu.ec.");
+        return;
+      }
+      if(!em.endsWith("@uce.edu.ec")){
+        toast("err","Correo inválido","Debe terminar en @uce.edu.ec.");
+        return;
+      }
+      if(!pw){
+        toast("err","Falta la contraseña","Escribe tu contraseña.");
+        return;
+      }
 
       try{
+        setLoading(submitBtn, true);
+
         const res = await fetch(API + "/auth/login", {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ email: email.value.trim(), password: password.value })
+          body: JSON.stringify({ email: em, password: pw })
         });
+
         const data = await res.json();
         if(!res.ok) throw new Error(JSON.stringify(data));
 
@@ -47,11 +227,17 @@
             "Authorization":"Bearer " + data.access_token
           }
         });
-        await res2.text(); // no importa la respuesta
+        await res2.text();
+
+        toast("ok","Sesión iniciada","Redirigiendo al dashboard…", 1800);
+        setMsg("Listo ✅", "ok");
 
         window.location.href = "/dashboard.html";
       }catch(err){
-        msg.textContent = "Error: " + err.message;
+        setMsg("No se pudo iniciar sesión.", "err");
+        toast("err","Error", err.message, 4200);
+      }finally{
+        setLoading(submitBtn, false);
       }
     });
   </script>
