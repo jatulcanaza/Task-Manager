@@ -112,9 +112,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: juantulcanaza/taskmanager-frontend:qa
     container_name: taskmanager-frontend-a
     ports:
       - "8080:80"
@@ -123,15 +121,14 @@ services:
     restart: unless-stopped
 
   frontend_b:
-    build:
-      context: ./frontend_b
-      dockerfile: Dockerfile
+    image: juantulcanaza/taskmanager-frontend-b:qa
     container_name: taskmanager-frontend-b
     ports:
       - "8081:80"
     depends_on:
       - backend
     restart: unless-stopped
+
 
 volumes:
   pgdata:
