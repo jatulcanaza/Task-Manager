@@ -1,5 +1,16 @@
+// =======================================================
+// Web A - app.js
+// Arquitectura:
+//   AUTH (JWT/SSO)  -> http://HOST:8000
+//   A (tasks CRUD)  -> http://HOST:8001
+//   B (reports/ws)  -> http://HOST:8002
+// =======================================================
+
 // Base URL del backend (FastAPI): usa el mismo host donde se abrió el frontend
-const API = `http://${window.location.hostname}:8000`;
+const HOST = window.location.hostname;
+const AUTH_API = `http://${HOST}:8000`; // login/register/sso token
+const A_API    = `http://${HOST}:8001`; // tasks
+const B_API    = `http://${HOST}:8002`; // reports + ws (si tu reporte está en B)
 
 const el = (id) => document.getElementById(id);
 
@@ -58,6 +69,11 @@ const modalClose = el("modalClose");
 const modalCancel = el("modalCancel");
 const modalOk = el("modalOk");
 
+//REFERENCIAS globales
+const ssoUrl = el("ssoUrl");
+const copySsoUrlBtn = el("copySsoUrlBtn");
+const openSsoUrlBtn = el("openSsoUrlBtn");
+
 let mode = "login";
 
 // -------------------- Theme --------------------
@@ -71,11 +87,10 @@ function applyTheme(theme) {
   // aria pressed
   if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
 
-  // ✅ NUEVO: cambiar ícono luna/sol
+  // cambiar ícono luna/sol
   const label = document.querySelector(".theme-label");
   if (label) label.textContent = isDark ? "☀️" : "🌙";
 }
-
 
 function getSavedTheme() {
   return localStorage.getItem("theme") || "light";
@@ -86,7 +101,6 @@ function toggleTheme() {
   const next = cur === "dark" ? "light" : "dark";
   localStorage.setItem("theme", next);
   applyTheme(next);
-  // recalcular underline si cambia el layout
   requestAnimationFrame(positionUnderline);
 }
 
@@ -131,7 +145,7 @@ function clearToasts() {
   if (toastHost) toastHost.innerHTML = "";
 }
 
-// -------------------- Toasts (notificaciones dentro de la página) --------------------
+// -------------------- Toasts --------------------
 function toast(type, title, text, timeoutMs = 3200) {
   if (!toastHost) return;
 
@@ -175,7 +189,7 @@ function toast(type, title, text, timeoutMs = 3200) {
   }
 }
 
-// -------------------- Modal (reemplaza confirm()) --------------------
+// -------------------- Modal --------------------
 function openModal({ title = "Confirmar", message = "¿Seguro?", okText = "Aceptar", cancelText = "Cancelar", danger = false }) {
   return new Promise((resolve) => {
     modalTitle.textContent = title;
@@ -282,11 +296,9 @@ function syncTopPills() {
 function setMode(next) {
   mode = next;
 
-  // legacy tabs (compat)
   tabLogin.classList.toggle("active", mode === "login");
   tabRegister.classList.toggle("active", mode === "register");
 
-  // limpiar inputs + mensajes al cambiar
   clearAuthFields();
   clearToasts();
 
@@ -294,7 +306,6 @@ function setMode(next) {
   requestAnimationFrame(positionUnderline);
 }
 
-// underline dinámico según label activo
 function positionUnderline() {
   const activeEl = mode === "login" ? signinLabel : signupLabel;
   const wrap = activeEl?.parentElement;
@@ -311,32 +322,38 @@ function positionUnderline() {
 }
 
 // -------------------- API wrapper --------------------
-async function apiFetch(path, opts = {}) {
-  const headers = opts.headers || {};
+function parseBody(text) {
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; }
+  catch { data = text; }
+  return data;
+}
+
+function normalizeError(res, data) {
+  if (data && typeof data === "object" && data.detail !== undefined) {
+    if (Array.isArray(data.detail)) {
+      return `${res.status} - ${data.detail.map((x) => x.msg || JSON.stringify(x)).join(" | ")}`;
+    }
+    return `${res.status} - ${typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)}`;
+  }
+  if (typeof data === "string") return `${res.status} - ${data}`;
+  return `${res.status} - ${JSON.stringify(data)}`;
+}
+
+// ✅ apiFetch(base, path, opts)
+async function apiFetch(base, path, opts = {}) {
+  const headers = opts.headers ? { ...opts.headers } : {};
   headers["Content-Type"] = "application/json";
 
   const token = getToken();
   if (token) headers["Authorization"] = "Bearer " + token;
 
-  const res = await fetch(API + path, { ...opts, headers });
+  const res = await fetch(base + path, { ...opts, headers });
 
   const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; }
-  catch { data = text; }
+  const data = parseBody(text);
 
-  if (!res.ok) {
-    let detail = "Error";
-    if (data && data.detail !== undefined) {
-      if (Array.isArray(data.detail)) detail = data.detail.map((x) => x.msg).join(" | ");
-      else if (typeof data.detail === "object") detail = JSON.stringify(data.detail);
-      else detail = String(data.detail);
-    } else if (typeof data === "string") detail = data;
-    else if (data) detail = JSON.stringify(data);
-
-    throw new Error(`${res.status} - ${detail}`);
-  }
-
+  if (!res.ok) throw new Error(normalizeError(res, data));
   return data;
 }
 
@@ -379,12 +396,9 @@ authForm.addEventListener("submit", async (e) => {
   setMsg(authMsg, "");
 
   const email = emailInput.value.trim().toLowerCase();
-
   const password = passInput.value || "";
 
-  // validaciones completas
   let ok = true;
-
   markInvalid(emailInput, false);
   markInvalid(passInput, false);
 
@@ -417,9 +431,10 @@ authForm.addEventListener("submit", async (e) => {
     // LOGIN
     setLoading(authSubmit, true, "Entrando...");
     try {
-      const data = await apiFetch("/auth/login", {
+      // ✅ AUTH en 8000
+      const data = await apiFetch(AUTH_API, "/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
 
       const access =
@@ -448,15 +463,15 @@ authForm.addEventListener("submit", async (e) => {
     // REGISTER (NO LOGIN AUTOMÁTICO)
     setLoading(authSubmit, true, "Registrando...");
     try {
-      await apiFetch("/auth/register", {
+      // ✅ AUTH en 8000
+      await apiFetch(AUTH_API, "/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
 
       toast("ok", "Registro exitoso", "Ahora puedes iniciar sesión con tu cuenta.", 3800);
       setMsg(authMsg, "Registro exitoso ✅", "ok");
 
-      // limpiar campos y volver a login
       clearAuthFields();
       setMode("login");
     } catch (err) {
@@ -483,13 +498,13 @@ logoutBtn.addEventListener("click", () => {
 // Refresh tasks
 refreshBtn.addEventListener("click", loadTasks);
 
-// Report
+// Report (✅ reporte está en B:8002)
 reportBtn.addEventListener("click", async () => {
   clearToasts();
   setMsg(appMsg, "");
   setLoading(reportBtn, true, "Cargando...");
   try {
-    const rep = await apiFetch("/reports/tasks-with-last-change", { method: "GET" });
+    const rep = await apiFetch(B_API, "/reports/tasks-with-last-change", { method: "GET" });
     renderReport(rep);
   } catch (err) {
     reportBox.innerHTML = "";
@@ -538,7 +553,7 @@ if (printReportBtn) {
   });
 }
 
-// Create task submit
+// Create task submit (✅ tasks en A:8001)
 createForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   clearToasts();
@@ -562,16 +577,17 @@ createForm.addEventListener("submit", async (e) => {
     const payload = {
       title,
       description: (newDesc.value || "").trim() || null,
-      status: newStatus.value
+      status: newStatus.value,
     };
 
-    const created = await apiFetch("/tasks", { method: "POST", body: JSON.stringify(payload) });
+    const created = await apiFetch(A_API, "/tasks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
 
-    // micro “success”
     toast("ok", "Tarea creada", `Se creó la tarea: ${created.title || created.id}`, 2600);
     setMsg(appMsg, "Tarea creada ✅", "ok");
 
-    // limpiar
     newTitle.value = "";
     newDesc.value = "";
     newStatus.value = "PENDING";
@@ -593,14 +609,15 @@ async function loadTasks() {
   setLoading(refreshBtn, true, "Actualizando...");
 
   try {
-    const tasks = await apiFetch("/tasks", { method: "GET" });
+    // ✅ tasks en A:8001
+    const tasks = await apiFetch(A_API, "/tasks", { method: "GET" });
     renderTasks(tasks);
   } catch (err) {
     tasksList.innerHTML = "";
     setMsg(appMsg, "No se pudo cargar tareas.", "err");
     toast("err", "No se pudo cargar tareas", err.message, 4200);
 
-    if (String(err.message).includes("401")) {
+    if (String(err.message).includes("401") || String(err.message).includes("403")) {
       clearToken();
       showAuth();
       setMode("login");
@@ -668,9 +685,10 @@ async function updateTaskStatus(taskId, status, btn) {
   setMsg(appMsg, "");
   setLoading(btn, true, "...");
   try {
-    const updated = await apiFetch(`/tasks/${taskId}`, {
+    // ✅ tasks en A:8001
+    const updated = await apiFetch(A_API, `/tasks/${taskId}`, {
       method: "PUT",
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status }),
     });
 
     toast("ok", "Estado actualizado", `Nuevo estado: ${updated.status}`, 2200);
@@ -695,13 +713,14 @@ async function deleteTask(taskId, title) {
     message: `¿Seguro que deseas eliminar la tarea ${label}?`,
     okText: "Eliminar",
     cancelText: "Cancelar",
-    danger: true
+    danger: true,
   });
 
   if (!ok) return;
 
   try {
-    await apiFetch(`/tasks/${taskId}`, { method: "DELETE" });
+    // ✅ tasks en A:8001
+    await apiFetch(A_API, `/tasks/${taskId}`, { method: "DELETE" });
     toast("ok", "Tarea eliminada", "Se eliminó correctamente.", 2200);
     setMsg(appMsg, "Tarea eliminada ✅", "ok");
     await loadTasks();
@@ -757,14 +776,17 @@ function renderReport(rows) {
 }
 
 // -------------------- WS --------------------
+// ✅ Si tu WS de eventos/reportes vive en B (recomendado), usa 8002.
+// Si lo dejaste en A, cambia 8002 -> 8001.
 function connectWS() {
   const host = window.location.hostname;
-  const ws = new WebSocket(`ws://${host}:8000/ws/reports`);
+  const ws = new WebSocket(`ws://${host}:8002/ws/reports`);
 
   ws.onopen = () => console.log("WS conectado");
   ws.onmessage = (ev) => {
     try {
       JSON.parse(ev.data);
+      // si llega un evento, recargamos
       loadTasks();
     } catch {}
   };
@@ -787,17 +809,39 @@ async function goToWebBSSO() {
       return;
     }
 
-    const data = await apiFetch("/sso/token", { method: "POST" });
+    // 1) Pedir SSO token (2 min) al AUTH:8000
+    const data = await apiFetch(AUTH_API, "/sso/token", { method: "POST" });
     const ssoToken = data?.sso_token || "";
     if (!ssoToken) throw new Error("El backend no devolvió sso_token.");
 
-    const host = window.location.hostname;
-    window.location.href = `http://${host}:8081/sso.html?token=${encodeURIComponent(ssoToken)}`;
+    // 2) Construir URL VISIBLE/EDITABLE
+    const url = `http://${HOST}:8081/sso.html?token=${encodeURIComponent(ssoToken)}`;
+
+    if (ssoUrl) ssoUrl.value = url;
+    toast("ok", "SSO listo", "URL generada. Puedes editar el token y abrir Web B.", 3200);
   } catch (err) {
     toast("err", "SSO falló", err.message, 4200);
   }
 }
 if (goSSOBtn) goSSOBtn.addEventListener("click", goToWebBSSO);
+
+// Copiar URL
+if (copySsoUrlBtn) {
+  copySsoUrlBtn.addEventListener("click", async () => {
+    if (!ssoUrl?.value) return toast("err", "Copiar", "No hay URL todavía. Genera una primero.");
+    await navigator.clipboard.writeText(ssoUrl.value);
+    toast("ok", "Copiado", "URL copiada al portapapeles.", 2000);
+  });
+}
+
+// Abrir URL
+if (openSsoUrlBtn) {
+  openSsoUrlBtn.addEventListener("click", () => {
+    const url = ssoUrl?.value || "";
+    if (!url) return toast("err", "Abrir", "No hay URL todavía. Genera una primero.");
+    window.open(url, "_blank", "noopener,noreferrer");
+  });
+}
 
 // -------------------- Utils --------------------
 function escapeHtml(s) {
@@ -813,11 +857,9 @@ function escapeHtml(s) {
 (function boot() {
   applyTheme(getSavedTheme());
 
-  // default mode
   syncTopPills();
   requestAnimationFrame(positionUnderline);
 
-  // on resize, keep underline aligned
   window.addEventListener("resize", () => requestAnimationFrame(positionUnderline));
 
   const token = getToken();

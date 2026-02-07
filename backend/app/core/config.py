@@ -1,79 +1,69 @@
-from pydantic_settings import BaseSettings  # Base para definir configuración leída desde variables de entorno
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    """
-    Centraliza la configuración de la aplicación usando Pydantic Settings.
-    - Por defecto, Pydantic leerá estos valores desde variables de entorno.
-    - Los tipos (str/int) sirven para validar y castear automáticamente.
-    """
+    # ---------- PostgreSQL ----------
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int
 
-    # ---------- Configuración de PostgreSQL ----------
-    POSTGRES_USER: str            # Usuario de conexión a PostgreSQL
-    POSTGRES_PASSWORD: str        # Contraseña de conexión a PostgreSQL
-    POSTGRES_DB: str              # Nombre de la base de datos PostgreSQL
-    POSTGRES_HOST: str            # Host/IP del servidor PostgreSQL
-    POSTGRES_PORT: int            # Puerto del servidor PostgreSQL
+    # ---------- Mongo A (task_logs) ----------
+    MONGO_A_INITDB_ROOT_USERNAME: str
+    MONGO_A_INITDB_ROOT_PASSWORD: str
+    MONGO_A_HOST: str
+    MONGO_A_PORT: int
+    MONGO_A_DB: str
 
-    # ---------- Configuración de MongoDB ----------
-    MONGO_INITDB_ROOT_USERNAME: str  # Usuario root/administrador de MongoDB (init)
-    MONGO_INITDB_ROOT_PASSWORD: str  # Password del usuario root/administrador de MongoDB (init)
-    MONGO_HOST: str                  # Host/IP del servidor MongoDB
-    MONGO_PORT: int                  # Puerto del servidor MongoDB
-    MONGO_DB: str                    # Nombre de la base de datos MongoDB (si aplica en tu app)
+    # ---------- Mongo B (access_logs) ----------
+    MONGO_B_INITDB_ROOT_USERNAME: str
+    MONGO_B_INITDB_ROOT_PASSWORD: str
+    MONGO_B_HOST: str
+    MONGO_B_PORT: int
+    MONGO_B_DB: str
 
-    # ---------- Configuración de JWT / Seguridad ----------
-    JWT_SECRET: str              # Secreto para firmar/verificar tokens JWT (NO debe ir hardcodeado)
-    JWT_EXPIRES_MIN: int = 60    # Minutos de expiración del JWT (valor por defecto: 60)
+    # ---------- JWT ----------
+    JWT_SECRET: str
+    JWT_EXPIRES_MIN: int = 60
 
-    # RabbitMQ
+    # RabbitMQ / MQTT / SMTP (igual que tienes)
     RABBITMQ_HOST: str = "rabbitmq"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USER: str = "guest"
     RABBITMQ_PASS: str = "guest"
 
-    # MQTT
     MQTT_HOST: str = "mosquitto"
     MQTT_PORT: int = 1883
     MQTT_TOPIC: str = "task/events"
 
-    # SMTP
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
     SMTP_FROM: str = "TaskManager <nutrygym.uce@gmail.com>"
-
-
-    # Admin notify
     ADMIN_NOTIFY_TO: str = ""
 
-
-
-    # ---------- Configuración de CORS ----------
-    CORS_ORIGINS: str = "http://localhost:8080"  # Origen permitido para CORS (ej: frontend local)
+    CORS_ORIGINS: str = "http://localhost:8080"
 
     @property
     def postgres_url(self) -> str:
-        """
-        Construye la URL de conexión a PostgreSQL en formato SQLAlchemy.
-        Usa driver psycopg2:
-          postgresql+psycopg2://USER:PASSWORD@HOST:PORT/DB
-        """
         return (
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
     @property
-    def mongo_url(self) -> str:
-        """
-        Construye la URL de conexión a MongoDB autenticando contra la base 'admin'.
-        Formato:
-          mongodb://USER:PASSWORD@HOST:PORT/?authSource=admin
-        """
+    def mongo_a_url(self) -> str:
         return (
-            f"mongodb://{self.MONGO_INITDB_ROOT_USERNAME}:{self.MONGO_INITDB_ROOT_PASSWORD}"
-            f"@{self.MONGO_HOST}:{self.MONGO_PORT}/?authSource=admin"
+            f"mongodb://{self.MONGO_A_INITDB_ROOT_USERNAME}:{self.MONGO_A_INITDB_ROOT_PASSWORD}"
+            f"@{self.MONGO_A_HOST}:{self.MONGO_A_PORT}/?authSource=admin"
         )
 
-settings = Settings()  # Instancia la configuración leyendo automáticamente desde variables de entorno
+    @property
+    def mongo_b_url(self) -> str:
+        return (
+            f"mongodb://{self.MONGO_B_INITDB_ROOT_USERNAME}:{self.MONGO_B_INITDB_ROOT_PASSWORD}"
+            f"@{self.MONGO_B_HOST}:{self.MONGO_B_PORT}/?authSource=admin"
+        )
+
+settings = Settings()

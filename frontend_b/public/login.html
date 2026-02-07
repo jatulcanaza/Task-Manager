@@ -88,158 +88,165 @@
     <span class="muted small">Web B © 2026</span>
   </footer>
 
-  <script>
-    const API = `http://${window.location.hostname}:8000`;
+<script src="/b.js"></script>
+<script>
+  const AUTH_API = `http://${window.location.hostname}:8000`;
+  const B_API = `http://${window.location.hostname}:8002`;
 
-    const toastHost = document.getElementById("toastHost");
-    const themeToggle = document.getElementById("themeToggle");
-    const backToA = document.getElementById("backToA");
+  const toastHost = document.getElementById("toastHost");
+  const themeToggle = document.getElementById("themeToggle");
+  const backToA = document.getElementById("backToA");
 
-    const f = document.getElementById("f");
-    const email = document.getElementById("email");
-    const password = document.getElementById("password");
-    const showPass = document.getElementById("showPass");
-    const msg = document.getElementById("msg");
-    const submitBtn = document.getElementById("submitBtn");
+  const f = document.getElementById("f");
+  const email = document.getElementById("email");
+  const password = document.getElementById("password");
+  const showPass = document.getElementById("showPass");
+  const msg = document.getElementById("msg");
+  const submitBtn = document.getElementById("submitBtn");
 
-    // ✅ volver a Web A (CAMBIA PUERTO SI ES NECESARIO)
-    (function(){
-      const host = window.location.hostname;
-      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
-    })();
+  // volver a Web A
+  (function(){
+    const host = window.location.hostname;
+    backToA.href = `http://${host}:8080/`;
+  })();
 
-    function setToken(t){ localStorage.setItem("token_b", t); }
+  // ---------- Theme ----------
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    const isDark = theme === "dark";
+    if (isDark) root.setAttribute("data-theme", "dark");
+    else root.removeAttribute("data-theme");
+    if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+    const label = document.querySelector(".theme-label");
+    if (label) label.textContent = isDark ? "☀️" : "🌙";
+  }
+  function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+  function toggleTheme(){
+    const cur = getSavedTheme();
+    const next = cur === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", next);
+    applyTheme(next);
+  }
+  applyTheme(getSavedTheme());
+  if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
 
-    // ---------- Theme ----------
-    function applyTheme(theme) {
-      const root = document.documentElement;
-      const isDark = theme === "dark";
-      if (isDark) root.setAttribute("data-theme", "dark");
-      else root.removeAttribute("data-theme");
-      if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-      const label = document.querySelector(".theme-label");
-      if (label) label.textContent = isDark ? "☀️" : "🌙";
-    }
-    function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
-    function toggleTheme(){
-      const cur = getSavedTheme();
-      const next = cur === "dark" ? "light" : "dark";
-      localStorage.setItem("theme", next);
-      applyTheme(next);
-    }
-    applyTheme(getSavedTheme());
-    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
-
-    if (showPass) {
-      showPass.addEventListener("change", () => {
-        password.type = showPass.checked ? "text" : "password";
-      });
-    }
-
-    function setMsg(text, kind=""){
-      msg.className = "msg " + (kind || "");
-      msg.textContent = text || "";
-    }
-
-    function setLoading(btn, loading, textLoading="Entrando..."){
-      btn.disabled = loading;
-      btn.classList.toggle("loading", !!loading);
-      const t = btn.querySelector(".btn-text");
-      if (!btn.dataset._txt) btn.dataset._txt = t.textContent;
-      t.textContent = loading ? textLoading : btn.dataset._txt;
-    }
-
-    function toast(type, title, text, timeoutMs=3200){
-      if(!toastHost) return;
-      const node = document.createElement("div");
-      node.className = `toast ${type||"info"}`;
-
-      const ico = document.createElement("div");
-      ico.className = "toast-ico";
-      ico.textContent = type==="ok" ? "✓" : type==="err" ? "!" : "i";
-
-      const body = document.createElement("div");
-      body.className = "toast-body";
-      const tt = document.createElement("div");
-      tt.className = "toast-title";
-      tt.textContent = title || "Aviso";
-      const p = document.createElement("p");
-      p.className = "toast-text";
-      p.textContent = text || "";
-
-      const close = document.createElement("button");
-      close.className = "toast-close";
-      close.type = "button";
-      close.textContent = "✕";
-      close.onclick = () => node.remove();
-
-      body.appendChild(tt);
-      body.appendChild(p);
-      node.appendChild(ico);
-      node.appendChild(body);
-      node.appendChild(close);
-      toastHost.appendChild(node);
-
-      if(timeoutMs > 0){
-        setTimeout(()=> node?.parentNode && node.remove(), timeoutMs);
-      }
-    }
-
-    f.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      setMsg("");
-
-      const em = email.value.trim().toLowerCase();
-      const pw = password.value || "";
-
-      if(!em){
-        toast("err","Falta el correo","Escribe tu correo institucional @uce.edu.ec.");
-        return;
-      }
-      if(!em.endsWith("@uce.edu.ec")){
-        toast("err","Correo inválido","Debe terminar en @uce.edu.ec.");
-        return;
-      }
-      if(!pw){
-        toast("err","Falta la contraseña","Escribe tu contraseña.");
-        return;
-      }
-
-      try{
-        setLoading(submitBtn, true);
-
-        const res = await fetch(API + "/auth/login", {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ email: em, password: pw })
-        });
-
-        const data = await res.json();
-        if(!res.ok) throw new Error(JSON.stringify(data));
-
-        setToken(data.access_token);
-
-        // Registrar NORMAL_LOGIN en Mongo
-        const res2 = await fetch(API + "/sso/mark-normal", {
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json",
-            "Authorization":"Bearer " + data.access_token
-          }
-        });
-        await res2.text();
-
-        toast("ok","Sesión iniciada","Redirigiendo al dashboard…", 1800);
-        setMsg("Listo ✅", "ok");
-
-        window.location.href = "/dashboard.html";
-      }catch(err){
-        setMsg("No se pudo iniciar sesión.", "err");
-        toast("err","Error", err.message, 4200);
-      }finally{
-        setLoading(submitBtn, false);
-      }
+  if (showPass) {
+    showPass.addEventListener("change", () => {
+      password.type = showPass.checked ? "text" : "password";
     });
-  </script>
+  }
+
+  function setMsg(text, kind=""){
+    msg.className = "msg " + (kind || "");
+    msg.textContent = text || "";
+  }
+
+  function setLoading(btn, loading, textLoading="Entrando..."){
+    btn.disabled = loading;
+    btn.classList.toggle("loading", !!loading);
+    const t = btn.querySelector(".btn-text");
+    if (!btn.dataset._txt) btn.dataset._txt = t.textContent;
+    t.textContent = loading ? textLoading : btn.dataset._txt;
+  }
+
+  function toast(type, title, text, timeoutMs=3200){
+    if(!toastHost) return;
+    const node = document.createElement("div");
+    node.className = `toast ${type||"info"}`;
+
+    const ico = document.createElement("div");
+    ico.className = "toast-ico";
+    ico.textContent = type==="ok" ? "✓" : type==="err" ? "!" : "i";
+
+    const body = document.createElement("div");
+    body.className = "toast-body";
+    const tt = document.createElement("div");
+    tt.className = "toast-title";
+    tt.textContent = title || "Aviso";
+    const p = document.createElement("p");
+    p.className = "toast-text";
+    p.textContent = text || "";
+
+    const close = document.createElement("button");
+    close.className = "toast-close";
+    close.type = "button";
+    close.textContent = "✕";
+    close.onclick = () => node.remove();
+
+    body.appendChild(tt);
+    body.appendChild(p);
+    node.appendChild(ico);
+    node.appendChild(body);
+    node.appendChild(close);
+    toastHost.appendChild(node);
+
+    if(timeoutMs > 0){
+      setTimeout(()=> node?.parentNode && node.remove(), timeoutMs);
+    }
+  }
+
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setMsg("");
+
+    const em = email.value.trim().toLowerCase();
+    const pw = password.value || "";
+
+    if(!em){
+      toast("err","Falta el correo","Escribe tu correo institucional @uce.edu.ec.");
+      return;
+    }
+    if(!em.endsWith("@uce.edu.ec")){
+      toast("err","Correo inválido","Debe terminar en @uce.edu.ec.");
+      return;
+    }
+    if(!pw){
+      toast("err","Falta la contraseña","Escribe tu contraseña.");
+      return;
+    }
+
+    try{
+      setLoading(submitBtn, true);
+
+      // 1) login normal en AUTH
+      const res = await fetch(AUTH_API + "/auth/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ email: em, password: pw })
+      });
+
+      const data = await res.json();
+      if(!res.ok) throw new Error(JSON.stringify(data));
+
+      // 2) guardar token B
+      localStorage.setItem("token_b", data.access_token);
+
+      // 3) ✅ registrar NORMAL_LOGIN en Backend B (Mongo B)
+      const res2 = await fetch(B_API + "/b/log-access", {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + data.access_token
+        },
+        body: JSON.stringify({ access_type: "NORMAL_LOGIN" })
+      });
+      if (!res2.ok) {
+        const t = await res2.text();
+        throw new Error("No se pudo registrar NORMAL_LOGIN: " + t);
+      }
+
+      toast("ok","Sesión iniciada","Redirigiendo al dashboard…", 1800);
+      setMsg("Listo ✅", "ok");
+      window.location.href = "/dashboard.html";
+
+    }catch(err){
+      setMsg("No se pudo iniciar sesión.", "err");
+      toast("err","Error", err.message, 4200);
+    }finally{
+      setLoading(submitBtn, false);
+    }
+  });
+</script>
+
 </body>
 </html>

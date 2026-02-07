@@ -16,18 +16,35 @@ class WSManager:
         async with self._lock:
             self._clients.discard(ws)
 
-    async def broadcast_json(self, payload: dict):
+    async def _snapshot_clients(self):
         async with self._lock:
-            clients = list(self._clients)
+            return list(self._clients)
+
+    async def _drop_dead(self, dead):
+        if not dead:
+            return
+        async with self._lock:
+            for ws in dead:
+                self._clients.discard(ws)
+
+    async def broadcast_json(self, payload: dict):
+        clients = await self._snapshot_clients()
         dead = []
         for ws in clients:
             try:
                 await ws.send_json(payload)
             except Exception:
                 dead.append(ws)
-        if dead:
-            async with self._lock:
-                for ws in dead:
-                    self._clients.discard(ws)
+        await self._drop_dead(dead)
+
+    async def broadcast_text(self, message: str):
+        clients = await self._snapshot_clients()
+        dead = []
+        for ws in clients:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                dead.append(ws)
+        await self._drop_dead(dead)
 
 ws_manager = WSManager()

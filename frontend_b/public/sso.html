@@ -43,17 +43,13 @@
   </footer>
 
   <script>
-    const API = `http://${window.location.hostname}:8000`;
-    const msg = document.getElementById("msg");
+    // Theme + back to A
     const themeToggle = document.getElementById("themeToggle");
     const backToA = document.getElementById("backToA");
 
-    function setToken(t){ localStorage.setItem("token_b", t); }
-
-    // back to A (CAMBIA PUERTO SI ES NECESARIO)
     (function(){
       const host = window.location.hostname;
-      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
+      backToA.href = `http://${host}:8080/`;
     })();
 
     function applyTheme(theme) {
@@ -74,51 +70,20 @@
     }
     applyTheme(getSavedTheme());
     if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
-
-    function getQS(name){
-      const u = new URL(window.location.href);
-      return u.searchParams.get(name);
-    }
-    function clearTokenFromUrl(){
-      const u = new URL(window.location.href);
-      u.searchParams.delete("token");
-      window.history.replaceState({}, "", u.toString());
-    }
-
-    (async function(){
-      try{
-        const sso = getQS("token");
-        if(!sso) throw new Error("Falta token en URL (?token=...)");
-
-        const res = await fetch(API + "/sso/consume", {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ sso_token: sso })
-        });
-
-        const txt = await res.text();
-        let data = null;
-        try { data = txt ? JSON.parse(txt) : null; }
-        catch { data = txt; }
-
-        if(!res.ok){
-          throw new Error(typeof data === "string" ? data : JSON.stringify(data));
-        }
-        if(!data?.access_token){
-          throw new Error("Respuesta de /sso/consume no trae access_token");
-        }
-
-        setToken(data.access_token);
-        clearTokenFromUrl();
-
-        msg.className = "msg ok";
-        msg.textContent = "SSO OK ✅ Redirigiendo al dashboard…";
-        setTimeout(()=> window.location.href = "/dashboard.html", 600);
-      }catch(e){
-        msg.className = "msg err";
-        msg.textContent = "SSO error: " + e.message;
-      }
-    })();
   </script>
+
+  <script src="/b.js"></script>
+  <script>
+    handleSSOPage({
+      authBase: `http://${window.location.hostname}:8000`,
+      apiBaseB: `http://${window.location.hostname}:8002`,
+      onStatus: (text, kind) => {
+        const msg = document.getElementById("msg");
+        msg.className = "msg " + (kind || "");
+        msg.textContent = text || "";
+      }
+    });
+  </script>
+
 </body>
 </html>

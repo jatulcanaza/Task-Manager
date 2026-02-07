@@ -1,25 +1,27 @@
-from pymongo import MongoClient  # Cliente oficial de MongoDB para Python
-from app.core.config import settings  # Configuración (incluye mongo_url y MONGO_DB)
+from pymongo import MongoClient
+from app.core.config import settings
 
-# Cliente global para reutilizar la conexión (patrón "singleton" simple a nivel de módulo)
-_client = None
+_client_a: MongoClient | None = None
+_client_b: MongoClient | None = None
 
-def get_mongo_client() -> MongoClient:
-    """
-    Devuelve una instancia única (reutilizable) de MongoClient.
-    - Usa una variable global _client para no crear múltiples conexiones.
-    - Si aún no existe, la crea usando la URL construida en settings.mongo_url.
-    """
-    global _client
-    if _client is None:
-        _client = MongoClient(settings.mongo_url)  # Conecta usando credenciales/host/puerto definidos en settings
-    return _client
+def get_mongo_a_client() -> MongoClient:
+    global _client_a
+    if _client_a is None:
+        _client_a = MongoClient(settings.mongo_a_url)
+    return _client_a
 
+def get_mongo_b_client() -> MongoClient:
+    global _client_b
+    if _client_b is None:
+        _client_b = MongoClient(settings.mongo_b_url)
+    return _client_b
+
+def get_mongo_a_db():
+    return get_mongo_a_client()[settings.MONGO_A_DB]
+
+def get_mongo_b_db():
+    return get_mongo_b_client()[settings.MONGO_B_DB]
+
+# compat: tu código actual llama get_mongo_db() en A => devolvemos A
 def get_mongo_db():
-    """
-    Devuelve la base de datos de Mongo configurada en settings.MONGO_DB.
-    - Obtiene primero el cliente (reutilizado).
-    - Accede a la DB por nombre como si fuera un diccionario: client["db_name"].
-    """
-    client = get_mongo_client()
-    return client[settings.MONGO_DB]
+    return get_mongo_a_db()

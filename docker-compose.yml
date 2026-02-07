@@ -1,17 +1,20 @@
 name: taskmanager
 
 services:
-  postgres:
+  # =========================
+  # PostgreSQL (único)
+  # =========================
+  postgres_a:
     image: postgres:16-alpine
-    container_name: taskmanager-postgres
+    container_name: taskmanager-postgres-a
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_a:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -19,16 +22,19 @@ services:
       retries: 20
     restart: unless-stopped
 
-  mongo:
+  # =========================
+  # Mongo A (task_logs)
+  # =========================
+  mongo_a:
     image: mongo:7
-    container_name: taskmanager-mongo
+    container_name: taskmanager-mongo-a
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     ports:
       - "27017:27017"
     volumes:
-      - mongodata:/data/db
+      - mongodata_a:/data/db
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 >/dev/null || exit 1"]
       interval: 5s
@@ -36,6 +42,29 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # =========================
+  # Mongo B (access_logs)
+  # =========================
+  mongo_b:
+    image: mongo:7
+    container_name: taskmanager-mongo-b
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodata_b:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1 >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # =========================
+  # RabbitMQ
+  # =========================
   rabbitmq:
     image: rabbitmq:3-management
     container_name: taskmanager-rabbitmq
@@ -52,6 +81,9 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # =========================
+  # Mosquitto MQTT
+  # =========================
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: taskmanager-mosquitto
@@ -68,23 +100,78 @@ services:
       retries: 20
     restart: unless-stopped
 
-  backend:
-    image: juantulcanaza/taskmanager-backend:qa
-    container_name: taskmanager-backend
+  # =====================================================
+  # BACKEND AUTH (8000) - build local desde /backend
+  # =====================================================
+  auth_service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskmanager-auth
+    command: ["uvicorn", "app.main_auth:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres_a
+      POSTGRES_PORT: 5432
+
+      # ✅ Aunque auth "no use" mongo, Settings() lo exige
+      MONGO_A_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_A_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_A_HOST: mongo_a
+      MONGO_A_PORT: 27017
+      MONGO_A_DB: ${MONGO_A_DB}
+
+      MONGO_B_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_B_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_B_HOST: mongo_b
+      MONGO_B_PORT: 27017
+      MONGO_B_DB: ${MONGO_B_DB}
+
+    depends_on:
+      postgres_a:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  # =====================================================
+  # BACKEND A (8001) - tasks + logs en Mongo A + bridge
+  # =====================================================
+  backend_a:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskmanager-backend-a
+    command: ["uvicorn", "app.main_a:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: postgres_a
       POSTGRES_PORT: 5432
 
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      MONGO_HOST: mongo
-      MONGO_PORT: 27017
-      MONGO_DB: ${MONGO_DB}
+      # ✅ Mongo A (task_logs)
+      MONGO_A_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_A_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_A_HOST: mongo_a
+      MONGO_A_PORT: 27017
+      MONGO_A_DB: ${MONGO_A_DB}
+
+      # ✅ Aunque backend_a "no use" mongo_b, Settings() lo exige (según tu error)
+      MONGO_B_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_B_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_B_HOST: mongo_b
+      MONGO_B_PORT: 27017
+      MONGO_B_DB: ${MONGO_B_DB}
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN}
@@ -108,11 +195,12 @@ services:
       ADMIN_NOTIFY_TO: ${ADMIN_NOTIFY_TO}
       SMTP_FROM: ${SMTP_FROM}
 
-
     depends_on:
-      postgres:
+      postgres_a:
         condition: service_healthy
-      mongo:
+      mongo_a:
+        condition: service_healthy
+      mongo_b:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -120,27 +208,86 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # =====================================================
+  # BACKEND B (8002) - reports + ws + access logs
+  # =====================================================
+  backend_b:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskmanager-backend-b
+    command: ["uvicorn", "app.main_b:app", "--host", "0.0.0.0", "--port", "8002"]
+    ports:
+      - "8002:8002"
+    environment:
+      # Postgres (leer tasks para report)
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: postgres_a
+      POSTGRES_PORT: 5432
+
+      # Mongo A (leer task_logs para last_change)
+      MONGO_A_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_A_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_A_HOST: mongo_a
+      MONGO_A_PORT: 27017
+      MONGO_A_DB: ${MONGO_A_DB}
+
+      # Mongo B (escribir access_logs)
+      MONGO_B_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_B_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_B_HOST: mongo_b
+      MONGO_B_PORT: 27017
+      MONGO_B_DB: ${MONGO_B_DB}
+
+      # JWT/CORS
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_MIN: ${JWT_EXPIRES_MIN}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    depends_on:
+      postgres_a:
+        condition: service_healthy
+      mongo_a:
+        condition: service_healthy
+      mongo_b:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =====================================================
+  # FRONTEND A (8080) - build local desde /frontend
+  # =====================================================
   frontend:
-    image: juantulcanaza/taskmanager-frontend:qa
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: taskmanager-frontend-a
     ports:
       - "8080:80"
     depends_on:
-      - backend
+      - auth_service
+      - backend_a
+      - backend_b
     restart: unless-stopped
 
+  # =====================================================
+  # FRONTEND B (8081) - build local desde /frontend_b
+  # =====================================================
   frontend_b:
-    image: juantulcanaza/taskmanager-frontend-b:qa
+    build:
+      context: ./frontend_b
+      dockerfile: Dockerfile
     container_name: taskmanager-frontend-b
     ports:
       - "8081:80"
     depends_on:
-      - backend
+      - auth_service
+      - backend_b
     restart: unless-stopped
 
-
 volumes:
-  pgdata:
-  mongodata:
+  pgdata_a:
+  mongodata_a:
+  mongodata_b:
   mosquitto_data:
   mosquitto_log:

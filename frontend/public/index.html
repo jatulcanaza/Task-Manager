@@ -138,6 +138,19 @@
 
           <button id="printReportBtn" class="btn ghost" type="button">Imprimir</button>
           <button id="goSSOBtn" class="btn ghost" type="button">Ir a Web B (SSO)</button>
+
+          <div class="sso-panel">
+            <label class="muted small" for="ssoUrl">URL SSO (editable para pruebas):</label>
+            <div class="row">
+              <input id="ssoUrl" type="text" placeholder="Genera el token para ver la URL aquí" />
+              <button id="copySsoUrlBtn" type="button" class="btn">Copiar</button>
+              <button id="openSsoUrlBtn" type="button" class="btn">Abrir Web B</button>
+            </div>
+            <div class="muted small">
+              Tip: cambia 1 carácter del token y vuelve a abrir. Web B debe rechazar.
+            </div>
+          </div>
+
         </div>
       </div>
 
