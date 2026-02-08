@@ -10,17 +10,24 @@ const AUTH_BASE_DEFAULT = `http://${HOST}:8000`;
 const API_B_DEFAULT = `http://${HOST}:8002`;
 
 // ===== Token storage (B) =====
+// ✅ CAMBIO: sessionStorage (no persistente)
 function getTokenB() {
-  const t = localStorage.getItem("token_b") || "";
+  const t = sessionStorage.getItem("token_b") || "";
   if (t === "undefined" || t === "null") return "";
   return t;
 }
 function setTokenB(token) {
   if (!token || token === "undefined" || token === "null") return;
-  localStorage.setItem("token_b", token);
+  sessionStorage.setItem("token_b", token);
 }
 function clearTokenB() {
-  localStorage.removeItem("token_b");
+  sessionStorage.removeItem("token_b");
+}
+
+// ✅ helper: logout centralizado
+function logoutB() {
+  clearTokenB();
+  window.location.href = "/login.html";
 }
 
 // ===== Utils =====
@@ -112,12 +119,13 @@ async function handleSSOPage({
     const access = data?.access_token || "";
     if (!access) throw new Error("Respuesta de /sso/consume sin access_token");
 
+    // ✅ token SOLO en sesión (no persistente)
     setTokenB(access);
 
     // ✅ registrar en Mongo B
     await logAccessB("SSO_TOKEN", apiBaseB);
 
-    // limpiar token de URL
+    // limpiar token de URL (para que no quede “copiable” después)
     const u = new URL(window.location.href);
     u.searchParams.delete("token");
     window.history.replaceState({}, "", u.toString());
@@ -160,6 +168,7 @@ function connectWS(eventsBox, wsBase = null, onEvent = null) {
 // ===== Dashboard init =====
 function initDashboard({ apiBase = API_B_DEFAULT, wsBase = null } = {}) {
   document.addEventListener("DOMContentLoaded", () => {
+    // ✅ BANCA: si no hay token en sesión -> SIEMPRE login
     if (!getTokenB()) {
       window.location.href = "/login.html";
       return;
@@ -171,6 +180,7 @@ function initDashboard({ apiBase = API_B_DEFAULT, wsBase = null } = {}) {
 
     const btnStats = document.getElementById("loadStats");
     const btnReport = document.getElementById("loadReport");
+    const btnLogout = document.getElementById("logoutB"); // ✅ nuevo botón
 
     async function refreshStats() {
       const stats = await apiFetchB("/reports/access-stats", { method: "GET" }, apiBase);
@@ -180,6 +190,11 @@ function initDashboard({ apiBase = API_B_DEFAULT, wsBase = null } = {}) {
     async function refreshReport() {
       const rpt = await apiFetchB("/reports/tasks-with-last-change", { method: "GET" }, apiBase);
       if (reportBox) reportBox.textContent = JSON.stringify(rpt, null, 2);
+    }
+
+    // Logout
+    if (btnLogout) {
+      btnLogout.addEventListener("click", () => logoutB());
     }
 
     // ✅ WS: cada evento refresca TODO (reporte automático)
@@ -193,10 +208,9 @@ function initDashboard({ apiBase = API_B_DEFAULT, wsBase = null } = {}) {
         try {
           await refreshStats();
         } catch (e) {
-          statsBox.textContent = "ERROR: " + e.message;
+          if (statsBox) statsBox.textContent = "ERROR: " + e.message;
           if (String(e.message).includes("401") || String(e.message).includes("403")) {
-            clearTokenB();
-            window.location.href = "/login.html";
+            logoutB();
           }
         }
       });
@@ -207,10 +221,9 @@ function initDashboard({ apiBase = API_B_DEFAULT, wsBase = null } = {}) {
         try {
           await refreshReport();
         } catch (e) {
-          reportBox.textContent = "ERROR: " + e.message;
+          if (reportBox) reportBox.textContent = "ERROR: " + e.message;
           if (String(e.message).includes("401") || String(e.message).includes("403")) {
-            clearTokenB();
-            window.location.href = "/login.html";
+            logoutB();
           }
         }
       });
@@ -223,3 +236,4 @@ window.handleSSOPage = handleSSOPage;
 window.initDashboard = initDashboard;
 window.logAccessB = logAccessB;
 window.apiFetchB = apiFetchB;
+window.logoutB = logoutB;

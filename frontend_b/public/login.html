@@ -104,6 +104,9 @@
   const msg = document.getElementById("msg");
   const submitBtn = document.getElementById("submitBtn");
 
+  // ✅ BANCA: cada vez que abres login, limpia sesión previa
+  sessionStorage.removeItem("token_b");
+
   // volver a Web A
   (function(){
     const host = window.location.hostname;
@@ -218,8 +221,8 @@
       const data = await res.json();
       if(!res.ok) throw new Error(JSON.stringify(data));
 
-      // 2) guardar token B
-      localStorage.setItem("token_b", data.access_token);
+      // 2) guardar token B EN SESIÓN (no persistente)
+      sessionStorage.setItem("token_b", data.access_token);
 
       // 3) ✅ registrar NORMAL_LOGIN en Backend B (Mongo B)
       const res2 = await fetch(B_API + "/b/log-access", {

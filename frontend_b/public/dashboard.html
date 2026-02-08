@@ -26,7 +26,7 @@
       </div>
 
       <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
-      <a class="btn" href="/login.html">Login normal</a>
+      <button class="btn danger" id="logoutB" type="button">Cerrar sesión</button>
     </div>
   </header>
 
@@ -45,9 +45,7 @@
       </div>
     </section>
 
-    <!-- ✅ RESPONSIVE PRO: 2 columnas en grande, 1 columna en mediano/pequeño -->
     <section class="split split-b">
-      <!-- EVENTOS -->
       <div class="card">
         <div class="section-title">
           <h3 class="h3">Eventos en vivo (WebSocket)</h3>
@@ -56,7 +54,6 @@
         <pre id="events" class="report"></pre>
       </div>
 
-      <!-- ✅ STATS (se apila abajo cuando la pantalla es mediana/pequeña) -->
       <div class="card">
         <div class="section-title">
           <h3 class="h3">Stats Accesos</h3>
@@ -83,10 +80,9 @@
     const themeToggle = document.getElementById("themeToggle");
     const backToA = document.getElementById("backToA");
 
-    // back to A (CAMBIA PUERTO SI ES NECESARIO)
     (function(){
       const host = window.location.hostname;
-      backToA.href = `http://${host}:8080/`; // <-- cambia si tu Web A usa otro puerto
+      backToA.href = `http://${host}:8080/`;
     })();
 
     function applyTheme(theme) {
