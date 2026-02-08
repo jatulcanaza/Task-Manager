@@ -255,18 +255,20 @@ function statusClass(status) {
 }
 
 // -------------------- Token helpers --------------------
+// ✅ CAMBIO: sessionStorage (no persistente tipo "banca")
 function getToken() {
-  const t = localStorage.getItem("token") || "";
+  const t = sessionStorage.getItem("token") || "";
   if (t === "undefined" || t === "null") return "";
   return t;
 }
 function setToken(t) {
   if (!t || t === "undefined" || t === "null") return;
-  localStorage.setItem("token", t);
+  sessionStorage.setItem("token", t);
 }
 function clearToken() {
-  localStorage.removeItem("token");
+  sessionStorage.removeItem("token");
 }
+
 
 // -------------------- View helpers --------------------
 function showApp(email = "") {
@@ -826,13 +828,41 @@ async function goToWebBSSO() {
 if (goSSOBtn) goSSOBtn.addEventListener("click", goToWebBSSO);
 
 // Copiar URL
+async function copyTextSafe(text) {
+  // 1) Clipboard API (si está disponible)
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  // 2) Fallback clásico
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand("copy");
+  document.body.removeChild(ta);
+  return ok;
+}
+
 if (copySsoUrlBtn) {
   copySsoUrlBtn.addEventListener("click", async () => {
-    if (!ssoUrl?.value) return toast("err", "Copiar", "No hay URL todavía. Genera una primero.");
-    await navigator.clipboard.writeText(ssoUrl.value);
-    toast("ok", "Copiado", "URL copiada al portapapeles.", 2000);
+    const url = ssoUrl?.value || "";
+    if (!url) return toast("err", "Copiar", "No hay URL todavía. Genera una primero.");
+
+    try {
+      const ok = await copyTextSafe(url);
+      if (!ok) throw new Error("No se pudo copiar automáticamente. Copia manualmente con Ctrl+C.");
+      toast("ok", "Copiado", "URL copiada al portapapeles.", 2000);
+    } catch (e) {
+      toast("err", "Copiar", e.message, 3500);
+    }
   });
 }
+
 
 // Abrir URL
 if (openSsoUrlBtn) {
