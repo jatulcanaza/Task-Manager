@@ -1,81 +1,177 @@
 <!doctype html>
+<!--
+  Documento HTML5.
+  Esta página corresponde a Web B y se usa exclusivamente
+  para el flujo de autenticación por SSO.
+-->
 <html lang="es">
 <head>
+  <!-- Codificación UTF-8 -->
   <meta charset="utf-8">
+
+  <!-- Responsive design (mobile / desktop) -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Título del documento -->
   <title>Web B - SSO</title>
+
+  <!-- Hoja de estilos principal compartida -->
   <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
+  <!-- =========================================================
+       HEADER / TOPBAR
+       ========================================================= -->
   <header class="topbar">
+    <!-- Branding (logo + texto) -->
     <div class="brand">
+      <!-- Logo de la aplicación -->
       <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
+
+      <!-- Nombre y subtítulo -->
       <div class="brand-text">
         <div class="title">Web B</div>
         <div class="subtitle">SSO</div>
       </div>
     </div>
 
+    <!-- Acciones de la derecha -->
     <div class="right">
+
+      <!-- Toggle de tema claro / oscuro -->
       <div class="theme-toggle" title="Cambiar tema">
         <span class="theme-label" aria-hidden="true">🌙</span>
-        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+
+        <!-- Switch accesible -->
+        <button
+          id="themeToggle"
+          class="switch"
+          type="button"
+          aria-label="Cambiar tema"
+          aria-pressed="false"
+        >
           <span class="switch-knob"></span>
         </button>
       </div>
 
+      <!-- Link dinámico de regreso a Web A -->
       <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
+
+      <!-- Opción de login tradicional -->
       <a class="btn" href="/login.html">Login normal</a>
     </div>
   </header>
 
+  <!-- =========================================================
+       CONTENIDO PRINCIPAL
+       ========================================================= -->
   <main class="container">
     <section class="card">
+      <!-- Título de estado -->
       <h2 class="card-title">Entrando por SSO...</h2>
-      <div class="muted small">Validando token y creando sesión en Web B.</div>
-      <div id="msg" class="msg" style="margin-top:12px;"></div>
+
+      <!-- Texto descriptivo -->
+      <div class="muted small">
+        Validando token y creando sesión en Web B.
+      </div>
+
+      <!-- Mensajes dinámicos de estado (JS) -->
+      <div
+        id="msg"
+        class="msg"
+        style="margin-top:12px;"
+      ></div>
     </section>
   </main>
 
+  <!-- =========================================================
+       FOOTER
+       ========================================================= -->
   <footer class="footer">
     <span class="muted small">Web B © 2026</span>
   </footer>
 
+  <!-- =========================================================
+       SCRIPT: TEMA (LIGHT / DARK)
+       ========================================================= -->
   <script>
+    // Referencias a elementos del DOM
     const themeToggle = document.getElementById("themeToggle");
     const backToA = document.getElementById("backToA");
 
+    // ---------------------------------------------------------
+    // Link dinámico de regreso a Web A
+    // ---------------------------------------------------------
+    // Se construye usando el hostname actual,
+    // asumiendo que Web A corre en el puerto 8080.
     (function(){
       const host = window.location.hostname;
       backToA.href = `http://${host}:8080/`;
     })();
 
+    // ---------------------------------------------------------
+    // Funciones de manejo de tema
+    // ---------------------------------------------------------
     function applyTheme(theme) {
       const root = document.documentElement;
       const isDark = theme === "dark";
+
+      // Se usa data-theme para activar estilos CSS
       if (isDark) root.setAttribute("data-theme", "dark");
       else root.removeAttribute("data-theme");
-      if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+
+      // Accesibilidad ARIA
+      if (themeToggle)
+        themeToggle.setAttribute(
+          "aria-pressed",
+          isDark ? "true" : "false"
+        );
+
+      // Icono visual
       const label = document.querySelector(".theme-label");
       if (label) label.textContent = isDark ? "☀️" : "🌙";
     }
-    function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+
+    // Lee el tema guardado en localStorage
+    function getSavedTheme(){
+      return localStorage.getItem("theme") || "light";
+    }
+
+    // Alterna entre light / dark
     function toggleTheme(){
       const cur = getSavedTheme();
       const next = cur === "dark" ? "light" : "dark";
       localStorage.setItem("theme", next);
       applyTheme(next);
     }
+
+    // Aplica tema al cargar la página
     applyTheme(getSavedTheme());
-    if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+
+    // Evento del botón
+    if (themeToggle)
+      themeToggle.addEventListener("click", toggleTheme);
   </script>
 
+  <!-- =========================================================
+       SCRIPT PRINCIPAL DE WEB B
+       ========================================================= -->
+  <!-- b.js contiene la lógica de SSO (consume token, etc.) -->
   <script src="/b.js"></script>
+
   <script>
+    // ---------------------------------------------------------
+    // INICIALIZACIÓN DE LA PÁGINA SSO
+    // ---------------------------------------------------------
     handleSSOPage({
+      // Base del servicio AUTH
       authBase: `http://${window.location.hostname}:8000`,
+
+      // Base del servicio Web B (API)
       apiBaseB: `http://${window.location.hostname}:8002`,
+
+      // Callback para mostrar estados en pantalla
       onStatus: (text, kind) => {
         const msg = document.getElementById("msg");
         msg.className = "msg " + (kind || "");

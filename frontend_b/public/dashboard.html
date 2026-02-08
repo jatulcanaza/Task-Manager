@@ -1,14 +1,36 @@
 <!doctype html>
+<!--
+  Página: Web B - Dashboard
+  Objetivo:
+  - Mostrar un panel de monitoreo en tiempo real (WebSocket)
+  - Consultar reportes y estadísticas desde el Backend B
+  - Integrar UI/UX (tema, navegación, logout)
+
+  Nota:
+  - La lógica funcional (WS, fetch de reportes, logout) vive en /b.js
+  - Este HTML define estructura y puntos de anclaje (IDs) para JS
+-->
 <html lang="es">
 <head>
+  <!-- Codificación -->
   <meta charset="utf-8">
+
+  <!-- Responsive -->
   <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Título de la pestaña -->
   <title>Web B - Dashboard</title>
+
+  <!-- CSS global -->
   <link rel="stylesheet" href="/styles.css">
 </head>
 
 <body>
+  <!-- =========================================================
+       TOPBAR / HEADER
+       ========================================================= -->
   <header class="topbar">
+    <!-- Branding (logo + nombre) -->
     <div class="brand">
       <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
       <div class="brand-text">
@@ -17,7 +39,9 @@
       </div>
     </div>
 
+    <!-- Acciones del header -->
     <div class="right">
+      <!-- Toggle de tema (light/dark) -->
       <div class="theme-toggle" title="Cambiar tema">
         <span class="theme-label" aria-hidden="true">🌙</span>
         <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
@@ -25,88 +49,155 @@
         </button>
       </div>
 
+      <!-- Link dinámico para volver a Web A -->
       <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
+
+      <!-- Botón de logout de Web B (token_b) -->
       <button class="btn danger" id="logoutB" type="button">Cerrar sesión</button>
     </div>
   </header>
 
+  <!-- =========================================================
+       MAIN CONTENT
+       ========================================================= -->
   <main class="container">
+
+    <!-- Card superior: descripción + acciones -->
     <section class="card">
       <div class="row">
         <div>
+          <!-- Título principal del dashboard -->
           <h2 class="card-title">Panel de monitoreo</h2>
+          <!-- Subtítulo/explicación -->
           <div class="muted small">SSO/Normal + Eventos en vivo + Reporte combinado.</div>
         </div>
 
+        <!-- Acciones rápidas: disparan requests desde b.js -->
         <div class="row-actions">
-          <button class="btn primary" id="loadStats" type="button">Cargar Stats Accesos</button>
-          <button class="btn" id="loadReport" type="button">Reporte tareas + último cambio</button>
+          <!-- Botón para cargar estadísticas de accesos -->
+          <button class="btn primary" id="loadStats" type="button">
+            Cargar Stats Accesos
+          </button>
+
+          <!-- Botón para cargar reporte combinado -->
+          <button class="btn" id="loadReport" type="button">
+            Reporte tareas + último cambio
+          </button>
         </div>
       </div>
     </section>
 
+    <!-- Sección split: 2 columnas (eventos WS y stats) -->
     <section class="split split-b">
+
+      <!-- Card izquierda: Eventos en vivo -->
       <div class="card">
         <div class="section-title">
           <h3 class="h3">Eventos en vivo (WebSocket)</h3>
+          <!-- Chip indicador del tipo de sección -->
           <div class="chip">WS</div>
         </div>
+
+        <!-- Contenedor de salida para logs/eventos
+             b.js escribe aquí el stream de eventos -->
         <pre id="events" class="report"></pre>
       </div>
 
+      <!-- Card derecha: Stats accesos -->
       <div class="card">
         <div class="section-title">
           <h3 class="h3">Stats Accesos</h3>
           <div class="chip">SSO vs Normal</div>
         </div>
+
+        <!-- Contenedor para stats agregadas desde /reports/access-stats -->
         <pre id="stats" class="report"></pre>
       </div>
     </section>
 
+    <!-- Card inferior: Reporte combinado -->
     <section class="card">
       <div class="section-title">
         <h3 class="h3">Reporte</h3>
         <div class="chip">Postgres + Mongo</div>
       </div>
+
+      <!-- Contenedor de salida para reporte combinado
+           b.js escribe el JSON (o texto) aquí -->
       <pre id="report" class="report"></pre>
     </section>
   </main>
 
+  <!-- Footer -->
   <footer class="footer">
     <span class="muted small">Web B © 2026</span>
   </footer>
 
+  <!-- =========================================================
+       SCRIPT: NAVEGACIÓN + THEME (LIGHT/DARK)
+       ========================================================= -->
   <script>
+    // Referencias DOM
     const themeToggle = document.getElementById("themeToggle");
     const backToA = document.getElementById("backToA");
 
+    // ---------------------------------------------------------
+    // Link dinámico de regreso a Web A (asumiendo puerto 8080)
+    // ---------------------------------------------------------
     (function(){
       const host = window.location.hostname;
       backToA.href = `http://${host}:8080/`;
     })();
 
+    // ---------------------------------------------------------
+    // Tema (persistente en localStorage)
+    // ---------------------------------------------------------
     function applyTheme(theme) {
       const root = document.documentElement;
       const isDark = theme === "dark";
+
+      // Activa CSS dark vía atributo data-theme
       if (isDark) root.setAttribute("data-theme", "dark");
       else root.removeAttribute("data-theme");
+
+      // Accesibilidad: aria-pressed refleja el estado
       if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+
+      // Icono visual: luna/sol
       const label = document.querySelector(".theme-label");
       if (label) label.textContent = isDark ? "☀️" : "🌙";
     }
+
+    // Lee tema guardado o usa light por defecto
     function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+
+    // Alterna entre dark y light
     function toggleTheme(){
       const cur = getSavedTheme();
       const next = cur === "dark" ? "light" : "dark";
       localStorage.setItem("theme", next);
       applyTheme(next);
     }
+
+    // Aplica tema al cargar + registra listener
     applyTheme(getSavedTheme());
     if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
   </script>
 
+  <!-- =========================================================
+       SCRIPT: LÓGICA DEL DASHBOARD (b.js)
+       ========================================================= -->
+  <!-- b.js contiene:
+       - initDashboard()
+       - conexión WebSocket /ws/reports
+       - fetch a /reports/access-stats
+       - fetch a /reports/tasks-with-last-change
+       - logout (limpia token_b y redirige)
+  -->
   <script src="/b.js"></script>
+
   <script>
+    // Bootstrap del dashboard: engancha eventos a botones y abre WS
     initDashboard();
   </script>
 

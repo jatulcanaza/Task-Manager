@@ -1,14 +1,23 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <!-- Codificación y responsive -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Título de la pestaña -->
   <title>Web B - Login</title>
+
+  <!-- CSS global del frontend -->
   <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
+  <!-- =========================================================
+       TOPBAR / HEADER
+       ========================================================= -->
   <header class="topbar">
+    <!-- Branding: logo + nombre -->
     <div class="brand">
       <img class="brand-logo img-logo" src="/logo.png" alt="Logo" />
       <div class="brand-text">
@@ -17,7 +26,9 @@
       </div>
     </div>
 
+    <!-- Acciones a la derecha -->
     <div class="right">
+      <!-- Toggle de tema -->
       <div class="theme-toggle" title="Cambiar tema">
         <span class="theme-label" aria-hidden="true">🌙</span>
         <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
@@ -25,14 +36,21 @@
         </button>
       </div>
 
+      <!-- Link dinámico para volver a Web A -->
       <a class="btn ghost" id="backToA" href="#">Volver a Web A</a>
     </div>
   </header>
 
+  <!-- Host para toasts (notificaciones flotantes) -->
   <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
 
+  <!-- =========================================================
+       CONTENIDO PRINCIPAL
+       ========================================================= -->
   <main class="container">
     <section class="auth-shell">
+
+      <!-- Panel izquierdo: branding visual -->
       <aside class="auth-left">
         <div class="left-center">
           <img class="left-logo" src="/logo.png" alt="Web B" />
@@ -41,11 +59,14 @@
         </div>
       </aside>
 
+      <!-- Panel derecho: formulario de login -->
       <section class="auth-right">
+        <!-- Pestaña/acción superior (solo “Iniciar sesión” por ahora) -->
         <div class="auth-top-actions">
           <button class="top-pill active" type="button">Iniciar sesión</button>
         </div>
 
+        <!-- Encabezado del formulario -->
         <div class="auth-head">
           <div class="auth-head-title">
             <span class="auth-head-strong">Login normal</span>
@@ -55,44 +76,64 @@
           </div>
         </div>
 
+        <!-- Formulario -->
+        <!-- novalidate: desactiva validación nativa para usar tu validación custom -->
         <form id="f" class="form auth-form" novalidate>
+
+          <!-- Campo: email -->
           <label class="field">
             <span class="field-label">CORREO</span>
             <input id="email" type="email" placeholder="tu correo @uce.edu.ec" autocomplete="email" required />
             <div class="field-hint">Ejemplo: juan.perez@uce.edu.ec</div>
           </label>
 
+          <!-- Campo: password -->
           <label class="field">
             <span class="field-label">CONTRASEÑA</span>
             <input id="password" type="password" placeholder="********" autocomplete="current-password" required />
             <div class="field-hint">Tu contraseña.</div>
           </label>
 
+          <!-- Checkbox para mostrar contraseña -->
           <label class="showpass-row" for="showPass">
             <input id="showPass" type="checkbox" />
             <span>Mostrar contraseña</span>
           </label>
 
+          <!-- Botón submit con spinner/estado loading -->
           <button id="submitBtn" class="btn primary pill full" type="submit">
             <span class="btn-text">Entrar</span>
             <span class="spinner" aria-hidden="true"></span>
           </button>
 
+          <!-- Mensaje de estado (texto simple) -->
           <div id="msg" class="msg" role="status" aria-live="polite"></div>
         </form>
       </section>
     </section>
   </main>
 
+  <!-- Footer -->
   <footer class="footer">
     <span class="muted small">Web B © 2026</span>
   </footer>
 
+<!-- =========================================================
+     SCRIPT BASE
+     ========================================================= -->
 <script src="/b.js"></script>
 <script>
+  // -------------------------------------------------------------------------
+  // ENDPOINTS BASE (se construyen con el hostname actual)
+  // -------------------------------------------------------------------------
+  // AUTH_API: microservicio AUTH (login, SSO)
+  // B_API: microservicio B (reportes/ws + log-access)
   const AUTH_API = `http://${window.location.hostname}:8000`;
   const B_API = `http://${window.location.hostname}:8002`;
 
+  // -------------------------------------------------------------------------
+  // REFERENCIAS A ELEMENTOS DOM
+  // -------------------------------------------------------------------------
   const toastHost = document.getElementById("toastHost");
   const themeToggle = document.getElementById("themeToggle");
   const backToA = document.getElementById("backToA");
@@ -104,78 +145,117 @@
   const msg = document.getElementById("msg");
   const submitBtn = document.getElementById("submitBtn");
 
-  // ✅ BANCA: cada vez que abres login, limpia sesión previa
+  // -------------------------------------------------------------------------
+  // ✅ LIMPIEZA DE SESIÓN PREVIA
+  // -------------------------------------------------------------------------
+  // Cada vez que se abre esta página se elimina token_b para evitar:
+  // - tokens viejos
+  // - sesión “fantasma”
+  // - confusión en el flujo de login
   sessionStorage.removeItem("token_b");
 
-  // volver a Web A
+  // -------------------------------------------------------------------------
+  // LINK DINÁMICO: VOLVER A WEB A
+  // -------------------------------------------------------------------------
   (function(){
     const host = window.location.hostname;
     backToA.href = `http://${host}:8080/`;
   })();
 
-  // ---------- Theme ----------
+  // -------------------------------------------------------------------------
+  // THEME (LIGHT/DARK) - Persistencia en localStorage
+  // -------------------------------------------------------------------------
   function applyTheme(theme) {
     const root = document.documentElement;
     const isDark = theme === "dark";
+
+    // data-theme activa estilos dark en CSS
     if (isDark) root.setAttribute("data-theme", "dark");
     else root.removeAttribute("data-theme");
+
+    // ARIA para accesibilidad
     if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+
+    // icono visual
     const label = document.querySelector(".theme-label");
     if (label) label.textContent = isDark ? "☀️" : "🌙";
   }
+
   function getSavedTheme(){ return localStorage.getItem("theme") || "light"; }
+
   function toggleTheme(){
     const cur = getSavedTheme();
     const next = cur === "dark" ? "light" : "dark";
     localStorage.setItem("theme", next);
     applyTheme(next);
   }
+
+  // Aplicar tema inicial y configurar evento
   applyTheme(getSavedTheme());
   if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
 
+  // -------------------------------------------------------------------------
+  // MOSTRAR / OCULTAR PASSWORD
+  // -------------------------------------------------------------------------
   if (showPass) {
     showPass.addEventListener("change", () => {
       password.type = showPass.checked ? "text" : "password";
     });
   }
 
+  // -------------------------------------------------------------------------
+  // UTILIDADES UI
+  // -------------------------------------------------------------------------
   function setMsg(text, kind=""){
+    // kind puede ser: "ok", "err" (dependiendo de tu CSS)
     msg.className = "msg " + (kind || "");
     msg.textContent = text || "";
   }
 
   function setLoading(btn, loading, textLoading="Entrando..."){
+    // Bloquea el botón mientras se hace el request
     btn.disabled = loading;
     btn.classList.toggle("loading", !!loading);
+
+    // Cambia el texto del botón temporalmente
     const t = btn.querySelector(".btn-text");
     if (!btn.dataset._txt) btn.dataset._txt = t.textContent;
     t.textContent = loading ? textLoading : btn.dataset._txt;
   }
 
+  // Toasts para feedback al usuario
   function toast(type, title, text, timeoutMs=3200){
     if(!toastHost) return;
+
+    // Contenedor del toast
     const node = document.createElement("div");
     node.className = `toast ${type||"info"}`;
 
+    // Icono simple
     const ico = document.createElement("div");
     ico.className = "toast-ico";
     ico.textContent = type==="ok" ? "✓" : type==="err" ? "!" : "i";
 
+    // Cuerpo del toast (título + texto)
     const body = document.createElement("div");
     body.className = "toast-body";
+
     const tt = document.createElement("div");
     tt.className = "toast-title";
     tt.textContent = title || "Aviso";
+
     const p = document.createElement("p");
     p.className = "toast-text";
     p.textContent = text || "";
 
+    // Botón cerrar
     const close = document.createElement("button");
     close.className = "toast-close";
     close.type = "button";
     close.textContent = "✕";
     close.onclick = () => node.remove();
 
+    // Ensamblaje
     body.appendChild(tt);
     body.appendChild(p);
     node.appendChild(ico);
@@ -183,18 +263,24 @@
     node.appendChild(close);
     toastHost.appendChild(node);
 
+    // Auto-cierre si timeout > 0
     if(timeoutMs > 0){
       setTimeout(()=> node?.parentNode && node.remove(), timeoutMs);
     }
   }
 
+  // -------------------------------------------------------------------------
+  // SUBMIT DEL FORMULARIO (LOGIN NORMAL)
+  // -------------------------------------------------------------------------
   f.addEventListener("submit", async (e) => {
     e.preventDefault();
     setMsg("");
 
+    // Normalización de inputs
     const em = email.value.trim().toLowerCase();
     const pw = password.value || "";
 
+    // ---------------- VALIDACIONES FRONT ----------------
     if(!em){
       toast("err","Falta el correo","Escribe tu correo institucional @uce.edu.ec.");
       return;
@@ -211,20 +297,35 @@
     try{
       setLoading(submitBtn, true);
 
-      // 1) login normal en AUTH
+      // ---------------------------------------------------
+      // 1) LOGIN NORMAL CONTRA EL SERVICIO AUTH
+      // ---------------------------------------------------
+      // POST /auth/login con { email, password }
       const res = await fetch(AUTH_API + "/auth/login", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ email: em, password: pw })
       });
 
+      // Parse respuesta JSON
       const data = await res.json();
+
+      // Si no es OK, forzamos error con el payload
       if(!res.ok) throw new Error(JSON.stringify(data));
 
-      // 2) guardar token B EN SESIÓN (no persistente)
+      // ---------------------------------------------------
+      // 2) GUARDAR TOKEN PARA WEB B (SESSION STORAGE)
+      // ---------------------------------------------------
+      // sessionStorage:
+      // - Se borra al cerrar pestaña/navegador
+      // - Más seguro que localStorage para tokens de sesión
       sessionStorage.setItem("token_b", data.access_token);
 
-      // 3) ✅ registrar NORMAL_LOGIN en Backend B (Mongo B)
+      // ---------------------------------------------------
+      // 3) REGISTRAR EL ACCESO EN BACKEND B (MONGO B)
+      // ---------------------------------------------------
+      // Se llama al endpoint /b/log-access autenticado con Bearer token
+      // y se registra el tipo de acceso: NORMAL_LOGIN
       const res2 = await fetch(B_API + "/b/log-access", {
         method:"POST",
         headers:{
@@ -233,19 +334,25 @@
         },
         body: JSON.stringify({ access_type: "NORMAL_LOGIN" })
       });
+
+      // Si falla el registro del log, lo tratamos como error
       if (!res2.ok) {
         const t = await res2.text();
         throw new Error("No se pudo registrar NORMAL_LOGIN: " + t);
       }
 
+      // Feedback al usuario y redirección
       toast("ok","Sesión iniciada","Redirigiendo al dashboard…", 1800);
       setMsg("Listo ✅", "ok");
       window.location.href = "/dashboard.html";
 
     }catch(err){
+      // Manejo unificado de error: mensaje + toast
       setMsg("No se pudo iniciar sesión.", "err");
       toast("err","Error", err.message, 4200);
+
     }finally{
+      // Siempre quitar loading
       setLoading(submitBtn, false);
     }
   });

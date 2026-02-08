@@ -1,27 +1,41 @@
 // =======================================================
 // Web A - app.js
-// Arquitectura:
-//   AUTH (JWT/SSO)  -> http://HOST:8000
-//   A (tasks CRUD)  -> http://HOST:8001
-//   B (reports/ws)  -> http://HOST:8002
+//
+// Arquitectura (microservicios):
+//   AUTH (JWT/SSO)  -> http://HOST:8000   (login/register + emitir token SSO)
+//   A (tasks CRUD)  -> http://HOST:8001   (crear/listar/editar/eliminar tareas)
+//   B (reports/ws)  -> http://HOST:8002   (reportes + websocket de eventos)
+//
+// Nota:
+// - Este archivo NO hace render con frameworks.
+// - Usa IDs del DOM (index.html) como "contract" de UI.
 // =======================================================
 
-// Base URL del backend (FastAPI): usa el mismo host donde se abrió el frontend
+
+// ---------------------------------------------------------------------
+// BASE URLS (dinámicas según el host donde se abre el frontend)
+// ---------------------------------------------------------------------
 const HOST = window.location.hostname;
 const AUTH_API = `http://${HOST}:8000`; // login/register/sso token
 const A_API    = `http://${HOST}:8001`; // tasks
 const B_API    = `http://${HOST}:8002`; // reports + ws (si tu reporte está en B)
 
+// Helper corto para obtener elementos por id
 const el = (id) => document.getElementById(id);
 
-// Containers
+
+// =====================================================================
+// REFERENCIAS DOM (contrato con index.html)
+// =====================================================================
+
+// Containers principales: vista auth vs vista app
 const authCard = el("authCard");
 const appCard = el("appCard");
 
-// Auth
-const tabLogin = el("tabLogin");
+// Auth: tabs y elementos del formulario
+const tabLogin = el("tabLogin");                 // tabs legacy (ocultos en HTML)
 const tabRegister = el("tabRegister");
-const tabLoginTop = el("tabLoginTop");
+const tabLoginTop = el("tabLoginTop");           // tabs UI visibles (píldoras)
 const tabRegisterTop = el("tabRegisterTop");
 
 const authForm = el("authForm");
@@ -32,6 +46,7 @@ const emailInput = el("email");
 const passInput = el("password");
 const showPass = el("showPass");
 
+// Labels y underline dinámico del header de auth
 const signinLabel = el("signinLabel");
 const signupLabel = el("signupLabel");
 const authUnderline = el("authUnderline");
@@ -40,16 +55,16 @@ const authUnderline = el("authUnderline");
 const themeToggle = el("themeToggle");
 
 // Topbar
-const logoutBtn = el("logoutBtn");
-const whoami = el("whoami");
+const logoutBtn = el("logoutBtn"); // botón salir (solo cuando hay sesión)
+const whoami = el("whoami");       // indicador de sesión/usuario
 
-// App actions
+// Acciones de la app
 const refreshBtn = el("refreshBtn");
 const reportBtn = el("reportBtn");
 const printReportBtn = el("printReportBtn");
 const goSSOBtn = el("goSSOBtn");
 
-// Create + lists
+// Create + listas
 const createForm = el("createForm");
 const createBtn = el("createBtn");
 const newTitle = el("newTitle");
@@ -69,25 +84,30 @@ const modalClose = el("modalClose");
 const modalCancel = el("modalCancel");
 const modalOk = el("modalOk");
 
-//REFERENCIAS globales
+// SSO panel (URL editable/copiable)
 const ssoUrl = el("ssoUrl");
 const copySsoUrlBtn = el("copySsoUrlBtn");
 const openSsoUrlBtn = el("openSsoUrlBtn");
 
+// Estado de modo auth: "login" o "register"
 let mode = "login";
 
-// -------------------- Theme --------------------
+
+// =====================================================================
+// THEME (LIGHT/DARK) - persistencia localStorage
+// =====================================================================
 function applyTheme(theme) {
   const root = document.documentElement;
   const isDark = theme === "dark";
 
+  // CSS dark activado por data-theme
   if (isDark) root.setAttribute("data-theme", "dark");
   else root.removeAttribute("data-theme");
 
-  // aria pressed
+  // Accesibilidad del switch
   if (themeToggle) themeToggle.setAttribute("aria-pressed", isDark ? "true" : "false");
 
-  // cambiar ícono luna/sol
+  // Cambia icono en el header
   const label = document.querySelector(".theme-label");
   if (label) label.textContent = isDark ? "☀️" : "🌙";
 }
@@ -97,6 +117,7 @@ function getSavedTheme() {
 }
 
 function toggleTheme() {
+  // Alterna tema y reposiciona underline (por cambios de layout)
   const cur = getSavedTheme();
   const next = cur === "dark" ? "light" : "dark";
   localStorage.setItem("theme", next);
@@ -104,12 +125,18 @@ function toggleTheme() {
   requestAnimationFrame(positionUnderline);
 }
 
-// -------------------- UI helpers --------------------
+
+// =====================================================================
+// UI HELPERS (mensajes, loading, validación visual)
+// =====================================================================
+
+// Setea mensaje en un contenedor y clase de estado (ok/err)
 function setMsg(target, text, kind = "") {
   target.className = "msg " + (kind || "");
   target.textContent = text || "";
 }
 
+// Estado loading para botones (disable + spinner + cambio de texto)
 function setLoading(button, loading, textLoading = "Cargando...") {
   if (!button) return;
   button.disabled = loading;
@@ -118,15 +145,18 @@ function setLoading(button, loading, textLoading = "Cargando...") {
   const t = button.querySelector(".btn-text");
   if (!t) return;
 
+  // Guarda texto original para restaurarlo
   if (!button.dataset._txt) button.dataset._txt = t.textContent;
   t.textContent = loading ? textLoading : button.dataset._txt;
 }
 
+// Marca inputs con estilo de error
 function markInvalid(inputEl, isInvalid) {
   if (!inputEl) return;
   inputEl.classList.toggle("input-err", !!isInvalid);
 }
 
+// Limpia campos y estado del login/registro
 function clearAuthFields() {
   emailInput.value = "";
   passInput.value = "";
@@ -137,15 +167,20 @@ function clearAuthFields() {
   setMsg(authMsg, "");
 }
 
+// Limpia mensajes de la app
 function clearAppMessages() {
   setMsg(appMsg, "");
 }
 
+// Limpia toasts (si quieres “resetear” feedback)
 function clearToasts() {
   if (toastHost) toastHost.innerHTML = "";
 }
 
-// -------------------- Toasts --------------------
+
+// =====================================================================
+// TOASTS (notificaciones flotantes)
+// =====================================================================
 function toast(type, title, text, timeoutMs = 3200) {
   if (!toastHost) return;
 
@@ -182,6 +217,7 @@ function toast(type, title, text, timeoutMs = 3200) {
 
   toastHost.appendChild(node);
 
+  // Auto-cierre
   if (timeoutMs > 0) {
     setTimeout(() => {
       if (node && node.parentNode) node.remove();
@@ -189,20 +225,37 @@ function toast(type, title, text, timeoutMs = 3200) {
   }
 }
 
-// -------------------- Modal --------------------
-function openModal({ title = "Confirmar", message = "¿Seguro?", okText = "Aceptar", cancelText = "Cancelar", danger = false }) {
+
+// =====================================================================
+// MODAL (confirmación custom para eliminar tareas)
+// =====================================================================
+// Reemplaza confirm() del navegador por:
+// - Mejor UI
+// - Mejor control
+// - Accesibilidad básica (escape + click afuera)
+function openModal({
+  title = "Confirmar",
+  message = "¿Seguro?",
+  okText = "Aceptar",
+  cancelText = "Cancelar",
+  danger = false
+}) {
   return new Promise((resolve) => {
+    // Setear textos
     modalTitle.textContent = title;
     modalBody.textContent = message;
 
     modalOk.textContent = okText;
     modalCancel.textContent = cancelText;
 
+    // Danger (estilo rojo) para acciones destructivas
     modalOk.classList.toggle("danger", !!danger);
 
+    // Mostrar modal
     modalOverlay.classList.remove("hidden");
     modalOverlay.setAttribute("aria-hidden", "false");
 
+    // Cleanup para evitar leaks de handlers
     const cleanup = () => {
       modalOverlay.classList.add("hidden");
       modalOverlay.setAttribute("aria-hidden", "true");
@@ -213,6 +266,7 @@ function openModal({ title = "Confirmar", message = "¿Seguro?", okText = "Acept
       document.removeEventListener("keydown", escHandler);
     };
 
+    // Cerrar con Escape
     const escHandler = (e) => {
       if (e.key === "Escape") {
         cleanup();
@@ -220,10 +274,12 @@ function openModal({ title = "Confirmar", message = "¿Seguro?", okText = "Acept
       }
     };
 
+    // Botones
     modalClose.onclick = () => { cleanup(); resolve(false); };
     modalCancel.onclick = () => { cleanup(); resolve(false); };
     modalOk.onclick = () => { cleanup(); resolve(true); };
 
+    // Click fuera del modal también cancela
     modalOverlay.onclick = (e) => {
       if (e.target === modalOverlay) {
         cleanup();
@@ -235,11 +291,17 @@ function openModal({ title = "Confirmar", message = "¿Seguro?", okText = "Acept
   });
 }
 
-// -------------------- Validations --------------------
+
+// =====================================================================
+// VALIDACIONES (frontend)
+// =====================================================================
+
+// Verifica correo institucional
 function isUceEmail(email) {
   return email.trim().toLowerCase().endsWith("@uce.edu.ec");
 }
 
+// Contraseña fuerte: 8 chars, 1 mayúscula, 1 número
 function isStrongPassword(p) {
   if (!p || p.length < 8) return false;
   const hasUpper = /[A-Z]/.test(p);
@@ -247,6 +309,7 @@ function isStrongPassword(p) {
   return hasUpper && hasNum;
 }
 
+// Clase CSS según estado de tarea (badges)
 function statusClass(status) {
   if (status === "PENDING") return "status-pending";
   if (status === "IN_PROGRESS") return "status-progress";
@@ -254,8 +317,12 @@ function statusClass(status) {
   return "";
 }
 
-// -------------------- Token helpers --------------------
-// ✅ CAMBIO: sessionStorage (no persistente tipo "banca")
+
+// =====================================================================
+// TOKEN HELPERS (Web A) - sessionStorage por seguridad
+// =====================================================================
+// Decisión:
+/// - sessionStorage reduce persistencia del token (tipo banca)
 function getToken() {
   const t = sessionStorage.getItem("token") || "";
   if (t === "undefined" || t === "null") return "";
@@ -270,7 +337,9 @@ function clearToken() {
 }
 
 
-// -------------------- View helpers --------------------
+// =====================================================================
+// VIEW HELPERS: cambiar entre auth y app
+// =====================================================================
 function showApp(email = "") {
   authCard.classList.add("hidden");
   appCard.classList.remove("hidden");
@@ -285,6 +354,7 @@ function showAuth() {
   whoami.textContent = "";
 }
 
+// Sincroniza UI de tabs “píldora” con el modo
 function syncTopPills() {
   tabLoginTop.classList.toggle("active", mode === "login");
   tabRegisterTop.classList.toggle("active", mode === "register");
@@ -292,9 +362,12 @@ function syncTopPills() {
   signinLabel.className = mode === "login" ? "auth-head-strong" : "auth-head-muted";
   signupLabel.className = mode === "register" ? "auth-head-strong" : "auth-head-muted";
 
-  authSubmit.querySelector(".btn-text").textContent = mode === "login" ? "Entrar" : "Registrar";
+  // Cambia texto del botón submit según modo
+  authSubmit.querySelector(".btn-text").textContent =
+    mode === "login" ? "Entrar" : "Registrar";
 }
 
+// Cambia modo y resetea UI
 function setMode(next) {
   mode = next;
 
@@ -308,6 +381,7 @@ function setMode(next) {
   requestAnimationFrame(positionUnderline);
 }
 
+// Reposiciona underline bajo el label activo (login/register)
 function positionUnderline() {
   const activeEl = mode === "login" ? signinLabel : signupLabel;
   const wrap = activeEl?.parentElement;
@@ -323,7 +397,10 @@ function positionUnderline() {
   authUnderline.style.width = `${Math.max(42, width)}px`;
 }
 
-// -------------------- API wrapper --------------------
+
+// =====================================================================
+// API WRAPPER (fetch + JSON + errores FastAPI)
+// =====================================================================
 function parseBody(text) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; }
@@ -342,11 +419,12 @@ function normalizeError(res, data) {
   return `${res.status} - ${JSON.stringify(data)}`;
 }
 
-// ✅ apiFetch(base, path, opts)
+// apiFetch(base, path, opts): wrapper con Authorization Bearer automático
 async function apiFetch(base, path, opts = {}) {
   const headers = opts.headers ? { ...opts.headers } : {};
   headers["Content-Type"] = "application/json";
 
+  // Adjunta token si existe
   const token = getToken();
   if (token) headers["Authorization"] = "Bearer " + token;
 
@@ -359,7 +437,10 @@ async function apiFetch(base, path, opts = {}) {
   return data;
 }
 
-// -------------------- “shake” visual when invalid --------------------
+
+// =====================================================================
+// SHAKE: animación para invalidaciones (UX)
+// =====================================================================
 function shake(elm) {
   if (!elm) return;
   elm.animate(
@@ -375,7 +456,10 @@ function shake(elm) {
   );
 }
 
-// -------------------- Events --------------------
+
+// =====================================================================
+// EVENTOS UI (tabs, theme, show password)
+// =====================================================================
 tabLogin.addEventListener("click", () => setMode("login"));
 tabRegister.addEventListener("click", () => setMode("register"));
 
@@ -390,16 +474,21 @@ if (showPass) {
   });
 }
 
-// AUTH submit
+
+// =====================================================================
+// AUTH SUBMIT (login o registro)
+// =====================================================================
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   clearToasts();
   setMsg(authMsg, "");
 
+  // Normalización inputs
   const email = emailInput.value.trim().toLowerCase();
   const password = passInput.value || "";
 
+  // Validación UI
   let ok = true;
   markInvalid(emailInput, false);
   markInvalid(passInput, false);
@@ -424,21 +513,23 @@ authForm.addEventListener("submit", async (e) => {
     toast("err", "Contraseña inválida", "Mínimo 8 caracteres, 1 mayúscula y 1 número.");
   }
 
+  // Si hay errores → shake y salir
   if (!ok) {
     shake(authCard);
     return;
   }
 
+  // ------------------- LOGIN -------------------
   if (mode === "login") {
-    // LOGIN
     setLoading(authSubmit, true, "Entrando...");
     try {
-      // ✅ AUTH en 8000
+      // Llama al microservicio AUTH: /auth/login
       const data = await apiFetch(AUTH_API, "/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
 
+      // Soporta varias posibles formas de respuesta (robustez)
       const access =
         data?.access_token ||
         data?.token ||
@@ -448,12 +539,16 @@ authForm.addEventListener("submit", async (e) => {
 
       if (!access) throw new Error("No se recibió access_token del backend. Revisa /auth/login.");
 
+      // Guardar token en sessionStorage
       setToken(access);
 
+      // Feedback + transición a app
       setMsg(authMsg, "Listo ✅ Sesión iniciada.", "ok");
       toast("ok", "Sesión iniciada", "Bienvenido. Cargando tus tareas…", 2200);
 
       showApp(email);
+
+      // Cargar tareas al iniciar sesión
       await loadTasks();
     } catch (err) {
       setMsg(authMsg, "No se pudo iniciar sesión.", "err");
@@ -461,11 +556,13 @@ authForm.addEventListener("submit", async (e) => {
     } finally {
       setLoading(authSubmit, false);
     }
+
+  // ------------------- REGISTER -------------------
   } else {
-    // REGISTER (NO LOGIN AUTOMÁTICO)
     setLoading(authSubmit, true, "Registrando...");
     try {
-      // ✅ AUTH en 8000
+      // Registro en AUTH: /auth/register
+      // Importante: NO inicia sesión automático (decisión de UX/seguridad)
       await apiFetch(AUTH_API, "/auth/register", {
         method: "POST",
         body: JSON.stringify({ email, password }),
@@ -474,6 +571,7 @@ authForm.addEventListener("submit", async (e) => {
       toast("ok", "Registro exitoso", "Ahora puedes iniciar sesión con tu cuenta.", 3800);
       setMsg(authMsg, "Registro exitoso ✅", "ok");
 
+      // Limpia y vuelve a modo login
       clearAuthFields();
       setMode("login");
     } catch (err) {
@@ -485,7 +583,10 @@ authForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Logout
+
+// =====================================================================
+// LOGOUT (Web A)
+// =====================================================================
 logoutBtn.addEventListener("click", () => {
   clearToken();
   tasksList.innerHTML = "";
@@ -497,15 +598,22 @@ logoutBtn.addEventListener("click", () => {
   setMode("login");
 });
 
-// Refresh tasks
+
+// =====================================================================
+// REFRESH TASKS (botón)
+// =====================================================================
 refreshBtn.addEventListener("click", loadTasks);
 
-// Report (✅ reporte está en B:8002)
+
+// =====================================================================
+// REPORT (reporte combinado vive en B:8002)
+// =====================================================================
 reportBtn.addEventListener("click", async () => {
   clearToasts();
   setMsg(appMsg, "");
   setLoading(reportBtn, true, "Cargando...");
   try {
+    // Llama al microservicio B: /reports/tasks-with-last-change
     const rep = await apiFetch(B_API, "/reports/tasks-with-last-change", { method: "GET" });
     renderReport(rep);
   } catch (err) {
@@ -517,14 +625,20 @@ reportBtn.addEventListener("click", async () => {
   }
 });
 
-// Print report
+
+// =====================================================================
+// PRINT REPORT (abre ventana e imprime)
+// =====================================================================
 if (printReportBtn) {
   printReportBtn.addEventListener("click", () => {
+    // Usa HTML renderizado o texto del reporte
     const content = reportBox.innerHTML
       ? reportBox.innerHTML
       : `<pre>${escapeHtml(reportBox.textContent || "")}</pre>`;
 
     const w = window.open("", "_blank");
+
+    // CSS mínimo para impresión
     const styles = `
       <style>
         body{font-family:Arial, sans-serif; padding:18px;}
@@ -555,13 +669,18 @@ if (printReportBtn) {
   });
 }
 
-// Create task submit (✅ tasks en A:8001)
+
+// =====================================================================
+// CREATE TASK (POST /tasks en A:8001)
+// =====================================================================
 createForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   clearToasts();
   setMsg(appMsg, "");
 
   const title = (newTitle.value || "").trim();
+
+  // Validación de título
   if (!title) {
     markInvalid(newTitle, true);
     toast("err", "Falta el título", "Escribe un título para la tarea.");
@@ -575,13 +694,16 @@ createForm.addEventListener("submit", async (e) => {
   markInvalid(newTitle, false);
 
   setLoading(createBtn, true, "Creando...");
+
   try {
+    // Payload de creación
     const payload = {
       title,
       description: (newDesc.value || "").trim() || null,
       status: newStatus.value,
     };
 
+    // Llama a A:8001 /tasks
     const created = await apiFetch(A_API, "/tasks", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -590,11 +712,14 @@ createForm.addEventListener("submit", async (e) => {
     toast("ok", "Tarea creada", `Se creó la tarea: ${created.title || created.id}`, 2600);
     setMsg(appMsg, "Tarea creada ✅", "ok");
 
+    // Reset form
     newTitle.value = "";
     newDesc.value = "";
     newStatus.value = "PENDING";
 
+    // Refresh lista
     await loadTasks();
+
   } catch (err) {
     setMsg(appMsg, "No se pudo crear la tarea.", "err");
     toast("err", "Error al crear tarea", err.message, 4200);
@@ -603,7 +728,10 @@ createForm.addEventListener("submit", async (e) => {
   }
 });
 
-// -------------------- Tasks --------------------
+
+// =====================================================================
+// TASKS: load + render + actions
+// =====================================================================
 async function loadTasks() {
   clearToasts();
   setMsg(appMsg, "");
@@ -611,14 +739,16 @@ async function loadTasks() {
   setLoading(refreshBtn, true, "Actualizando...");
 
   try {
-    // ✅ tasks en A:8001
+    // GET tasks desde A:8001
     const tasks = await apiFetch(A_API, "/tasks", { method: "GET" });
     renderTasks(tasks);
+
   } catch (err) {
     tasksList.innerHTML = "";
     setMsg(appMsg, "No se pudo cargar tareas.", "err");
     toast("err", "No se pudo cargar tareas", err.message, 4200);
 
+    // Si el token expira o es inválido → volver a login
     if (String(err.message).includes("401") || String(err.message).includes("403")) {
       clearToken();
       showAuth();
@@ -630,6 +760,7 @@ async function loadTasks() {
 }
 
 function renderTasks(tasks) {
+  // Estado vacío
   if (!tasks || tasks.length === 0) {
     tasksList.innerHTML = `
       <div class="empty">
@@ -642,11 +773,14 @@ function renderTasks(tasks) {
     return;
   }
 
+  // Render listado
   tasksList.innerHTML = "";
+
   for (const t of tasks) {
     const div = document.createElement("div");
     div.className = "item";
 
+    // Render seguro (escapeHtml) para evitar inyección HTML
     div.innerHTML = `
       <div class="item-top">
         <div>
@@ -665,9 +799,11 @@ function renderTasks(tasks) {
 
       <div class="muted small">id: ${t.id}</div>
     `;
+
     tasksList.appendChild(div);
   }
 
+  // Bind handlers a todos los botones generados
   tasksList.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const action = btn.dataset.action;
@@ -682,12 +818,16 @@ function renderTasks(tasks) {
   });
 }
 
+
+// ---------------------------------------------------------------------
+// UPDATE STATUS (PUT /tasks/{id} en A:8001)
+// ---------------------------------------------------------------------
 async function updateTaskStatus(taskId, status, btn) {
   clearToasts();
   setMsg(appMsg, "");
   setLoading(btn, true, "...");
+
   try {
-    // ✅ tasks en A:8001
     const updated = await apiFetch(A_API, `/tasks/${taskId}`, {
       method: "PUT",
       body: JSON.stringify({ status }),
@@ -696,20 +836,27 @@ async function updateTaskStatus(taskId, status, btn) {
     toast("ok", "Estado actualizado", `Nuevo estado: ${updated.status}`, 2200);
     setMsg(appMsg, `Estado actualizado ✅ (${updated.status})`, "ok");
     await loadTasks();
+
   } catch (err) {
     setMsg(appMsg, "No se pudo actualizar el estado.", "err");
     toast("err", "Error al actualizar", err.message, 4200);
   } finally {
+    // Restaurar texto original del botón
     setLoading(btn, false, btn.dataset._txt || "");
   }
 }
 
+
+// ---------------------------------------------------------------------
+// DELETE TASK (DELETE /tasks/{id} en A:8001)
+// ---------------------------------------------------------------------
 async function deleteTask(taskId, title) {
   clearToasts();
   setMsg(appMsg, "");
 
   const label = title ? `"${title}"` : taskId;
 
+  // Modal de confirmación antes de eliminar
   const ok = await openModal({
     title: "Eliminar tarea",
     message: `¿Seguro que deseas eliminar la tarea ${label}?`,
@@ -721,7 +868,6 @@ async function deleteTask(taskId, title) {
   if (!ok) return;
 
   try {
-    // ✅ tasks en A:8001
     await apiFetch(A_API, `/tasks/${taskId}`, { method: "DELETE" });
     toast("ok", "Tarea eliminada", "Se eliminó correctamente.", 2200);
     setMsg(appMsg, "Tarea eliminada ✅", "ok");
@@ -732,7 +878,10 @@ async function deleteTask(taskId, title) {
   }
 }
 
-// -------------------- Report --------------------
+
+// =====================================================================
+// REPORT RENDER (tabla HTML a partir de DTO del backend B)
+// =====================================================================
 function renderReport(rows) {
   if (!rows || rows.length === 0) {
     reportBox.innerHTML = `
@@ -746,6 +895,7 @@ function renderReport(rows) {
     return;
   }
 
+  // Formatea fecha ISO a hora local del navegador
   const fmt = (d) => {
     if (!d) return "-";
     const dt = new Date(d);
@@ -753,6 +903,7 @@ function renderReport(rows) {
     return dt.toLocaleString();
   };
 
+  // Render como tabla
   reportBox.innerHTML = `
     <table class="rtable">
       <thead>
@@ -777,29 +928,38 @@ function renderReport(rows) {
   `;
 }
 
-// -------------------- WS --------------------
-// ✅ Si tu WS de eventos/reportes vive en B (recomendado), usa 8002.
-// Si lo dejaste en A, cambia 8002 -> 8001.
+
+// =====================================================================
+// WEBSOCKET (event-driven refresh)
+// =====================================================================
+// Conecta a B:8002/ws/reports
+// Cuando llegan eventos (task.created/updated/deleted), recarga tareas
 function connectWS() {
   const host = window.location.hostname;
   const ws = new WebSocket(`ws://${host}:8002/ws/reports`);
 
   ws.onopen = () => console.log("WS conectado");
+
   ws.onmessage = (ev) => {
     try {
+      // Si llega JSON válido, asumimos evento
       JSON.parse(ev.data);
-      // si llega un evento, recargamos
-      loadTasks();
+      loadTasks(); // recarga la lista automáticamente
     } catch {}
   };
+
   ws.onclose = () => {
     console.log("WS desconectado, reintentando...");
     setTimeout(connectWS, 2000);
   };
 }
 
-// -------------------- SSO redirect --------------------
+
+// =====================================================================
+// SSO: GENERAR URL PARA WEB B (sin login normal allá)
+// =====================================================================
 async function goToWebBSSO() {
+  // Decide dónde mostrar el mensaje (depende si estás en app o auth)
   const msgBox = appCard.classList.contains("hidden") ? authMsg : appMsg;
   setMsg(msgBox, "");
   clearToasts();
@@ -811,15 +971,18 @@ async function goToWebBSSO() {
       return;
     }
 
-    // 1) Pedir SSO token (2 min) al AUTH:8000
+    // 1) Pedir SSO token al AUTH (válido 2 min)
+    // Este endpoint requiere Bearer token (se adjunta en apiFetch automáticamente)
     const data = await apiFetch(AUTH_API, "/sso/token", { method: "POST" });
     const ssoToken = data?.sso_token || "";
     if (!ssoToken) throw new Error("El backend no devolvió sso_token.");
 
-    // 2) Construir URL VISIBLE/EDITABLE
+    // 2) Construir URL a Web B (puerto 8081) con el token en query param
     const url = `http://${HOST}:8081/sso.html?token=${encodeURIComponent(ssoToken)}`;
 
+    // 3) Mostrarla en el input editable
     if (ssoUrl) ssoUrl.value = url;
+
     toast("ok", "SSO listo", "URL generada. Puedes editar el token y abrir Web B.", 3200);
   } catch (err) {
     toast("err", "SSO falló", err.message, 4200);
@@ -827,15 +990,18 @@ async function goToWebBSSO() {
 }
 if (goSSOBtn) goSSOBtn.addEventListener("click", goToWebBSSO);
 
-// Copiar URL
+
+// =====================================================================
+// COPIAR URL (Clipboard API + fallback)
+// =====================================================================
 async function copyTextSafe(text) {
-  // 1) Clipboard API (si está disponible)
+  // 1) Clipboard API moderna
   if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
     await navigator.clipboard.writeText(text);
     return true;
   }
 
-  // 2) Fallback clásico
+  // 2) Fallback clásico (textarea + execCommand)
   const ta = document.createElement("textarea");
   ta.value = text;
   ta.setAttribute("readonly", "");
@@ -864,16 +1030,22 @@ if (copySsoUrlBtn) {
 }
 
 
-// Abrir URL
+// =====================================================================
+// ABRIR URL (en nueva pestaña)
+// =====================================================================
 if (openSsoUrlBtn) {
   openSsoUrlBtn.addEventListener("click", () => {
     const url = ssoUrl?.value || "";
     if (!url) return toast("err", "Abrir", "No hay URL todavía. Genera una primero.");
+    // noopener,noreferrer: mejora seguridad (evita window.opener)
     window.open(url, "_blank", "noopener,noreferrer");
   });
 }
 
-// -------------------- Utils --------------------
+
+// =====================================================================
+// ESCAPE HTML (evita inyección XSS en renderTasks/report)
+// =====================================================================
 function escapeHtml(s) {
   return String(s)
     .replaceAll("&", "&amp;")
@@ -883,15 +1055,22 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-// -------------------- Boot --------------------
+
+// =====================================================================
+// BOOT (inicio de la app)
+// =====================================================================
 (function boot() {
+  // Aplica tema guardado
   applyTheme(getSavedTheme());
 
+  // Sincroniza tabs y underline visual
   syncTopPills();
   requestAnimationFrame(positionUnderline);
 
+  // Mantener underline correcto ante resize
   window.addEventListener("resize", () => requestAnimationFrame(positionUnderline));
 
+  // Si ya existe token en sesión → entrar directo a app
   const token = getToken();
   if (token) {
     showApp("");
@@ -901,5 +1080,6 @@ function escapeHtml(s) {
     setMode("login");
   }
 
+  // Conectar WS para actualizaciones automáticas
   connectWS();
 })();

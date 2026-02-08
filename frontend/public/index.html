@@ -1,14 +1,37 @@
 <!doctype html>
+<!--
+  Web A - Task Manager UCE (Frontend principal)
+  Objetivo:
+  - Ofrecer autenticación (login/registro) contra servicio AUTH
+  - Luego mostrar CRUD de tareas (servicio A /tasks)
+  - Permitir generar URL SSO para acceder a Web B sin login tradicional
+  - Mostrar reporte combinado (Postgres + Mongo)
+
+  Nota:
+  - Este HTML define estructura y anclajes (IDs).
+  - La lógica real está en app.js (handlers, fetch, estado, WS, etc.)
+-->
 <html lang="es">
 <head>
+  <!-- Codificación -->
   <meta charset="utf-8" />
+
+  <!-- Responsive -->
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Título de la pestaña -->
   <title>Task Manager UCE</title>
+
+  <!-- CSS global -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
+  <!-- =========================================================
+       TOPBAR / HEADER
+       ========================================================= -->
   <header class="topbar">
+    <!-- Branding (logo + nombre) -->
     <div class="brand">
       <img class="brand-logo img-logo" src="logo.png" alt="Logo" />
       <div class="brand-text">
@@ -17,31 +40,69 @@
       </div>
     </div>
 
+    <!-- Acciones de la derecha (tema + sesión) -->
     <div class="right">
-      <!-- Theme toggle -->
+      <!-- Theme toggle (light/dark) controlado por JS -->
       <div class="theme-toggle" title="Cambiar tema">
         <span class="theme-label" aria-hidden="true">🌙</span>
-        <button id="themeToggle" class="switch" type="button" aria-label="Cambiar tema" aria-pressed="false">
+        <button
+          id="themeToggle"
+          class="switch"
+          type="button"
+          aria-label="Cambiar tema"
+          aria-pressed="false"
+        >
           <span class="switch-knob"></span>
         </button>
       </div>
 
+      <!-- whoami: muestra usuario autenticado (email/nombre) -->
       <div id="whoami" class="whoami"></div>
+
+      <!-- logout: oculto hasta que haya sesión -->
       <button id="logoutBtn" class="btn ghost hidden" type="button">Salir</button>
     </div>
   </header>
 
-  <!-- Toast notifications -->
+  <!-- =========================================================
+       TOAST HOST (notificaciones)
+       ========================================================= -->
+  <!--
+    Contenedor de notificaciones flotantes (toasts).
+    app.js inyecta elementos aquí para feedback al usuario.
+  -->
   <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- Modal (reemplaza confirm() del navegador) -->
-  <div id="modalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true">
+  <!-- =========================================================
+       MODAL CUSTOM (reemplaza confirm() del navegador)
+       ========================================================= -->
+  <!--
+    Modal accesible:
+    - modalOverlay: overlay con role dialog
+    - hidden: clase CSS para ocultar/mostrar
+    - aria-hidden cambia según estado (app.js)
+    Se usa por ejemplo para confirmar eliminación de tareas.
+  -->
+  <div
+    id="modalOverlay"
+    class="modal-overlay hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+  >
     <div class="modal">
       <div class="modal-head">
+        <!-- Título dinámico -->
         <div class="modal-title" id="modalTitle">Confirmar</div>
+
+        <!-- Botón cerrar -->
         <button id="modalClose" class="icon-btn" type="button" aria-label="Cerrar">✕</button>
       </div>
+
+      <!-- Cuerpo dinámico -->
       <div class="modal-body" id="modalBody">¿Seguro?</div>
+
+      <!-- Acciones -->
       <div class="modal-actions">
         <button id="modalCancel" class="btn" type="button">Cancelar</button>
         <button id="modalOk" class="btn danger" type="button">Eliminar</button>
@@ -49,10 +110,16 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       CONTENIDO PRINCIPAL
+       ========================================================= -->
   <main class="container">
-    <!-- AUTH -->
+
+    <!-- =======================================================
+         AUTH CARD (Login / Registro)
+         ======================================================= -->
     <section id="authCard" class="auth-shell">
-      <!-- LEFT: logo centrado -->
+      <!-- Panel izquierdo: branding centrado -->
       <aside class="auth-left">
         <div class="left-center">
           <img class="left-logo" src="logo.png" alt="Task Manager UCE" />
@@ -61,13 +128,16 @@
         </div>
       </aside>
 
-      <!-- RIGHT: login -->
+      <!-- Panel derecho: formulario de login/registro -->
       <section class="auth-right">
+
+        <!-- Tabs superiores (UI moderna) -->
         <div class="auth-top-actions">
           <button id="tabLoginTop" class="top-pill active" type="button">Iniciar sesión</button>
           <button id="tabRegisterTop" class="top-pill" type="button">Registrarse</button>
         </div>
 
+        <!-- Encabezado de auth (texto dinámico según tab) -->
         <div class="auth-head">
           <div class="auth-head-title" id="authHeadTitle">
             <span id="signinLabel" class="auth-head-strong">Iniciar sesión</span>
@@ -75,77 +145,97 @@
             <span id="signupLabel" class="auth-head-muted">Registrarse</span>
           </div>
 
-          <!-- underline dinámica -->
+          <!-- Subrayado dinámico para indicar tab activa -->
           <div class="auth-underline-wrap">
             <div id="authUnderline" class="auth-underline" aria-hidden="true"></div>
           </div>
         </div>
 
-        <!-- Tabs legacy (solo para compatibilidad de ids; 100% ocultos) -->
+        <!-- Tabs legacy ocultos:
+             Solo se mantienen IDs para compatibilidad con lógica previa en app.js -->
         <div class="sr-only" aria-hidden="true">
           <button id="tabLogin" class="tab active" type="button">Login</button>
           <button id="tabRegister" class="tab" type="button">Registro</button>
         </div>
 
+        <!-- Formulario auth reutilizable para login/registro -->
         <form id="authForm" class="form auth-form" novalidate>
+          <!-- Campo correo institucional -->
           <label class="field">
             <span class="field-label">CORREO</span>
             <input id="email" type="email" placeholder="tu correo @uce.edu.ec" autocomplete="email" />
             <div class="field-hint" id="emailHint">Ejemplo: juan.perez@uce.edu.ec</div>
           </label>
 
+          <!-- Campo contraseña -->
           <label class="field">
             <span class="field-label">CONTRASEÑA</span>
             <input id="password" type="password" placeholder="********" autocomplete="current-password" />
             <div class="field-hint" id="passHint">Mínimo 8 caracteres, 1 mayúscula y 1 número.</div>
           </label>
 
-          <!-- Mostrar contraseña alineado izquierda -->
+          <!-- Mostrar contraseña -->
           <label class="showpass-row" for="showPass">
             <input id="showPass" type="checkbox" />
             <span>Mostrar contraseña</span>
           </label>
 
-
+          <!-- Submit:
+               - Texto + spinner (loading state controlado por JS) -->
           <button id="authSubmit" class="btn primary pill full" type="submit">
             <span class="btn-text">Entrar</span>
             <span class="spinner" aria-hidden="true"></span>
           </button>
 
+          <!-- Mensaje de estado -->
           <div id="authMsg" class="msg" role="status" aria-live="polite"></div>
         </form>
       </section>
     </section>
 
-    <!-- APP -->
+    <!-- =======================================================
+         APP CARD (CRUD de tareas + Reporte + SSO)
+         ======================================================= -->
     <section id="appCard" class="card hidden">
+      <!-- Header de la sección -->
       <div class="row">
         <div>
           <h2 class="card-title">Mis tareas</h2>
           <div class="muted small">Crea, actualiza, elimina y revisa el reporte combinado.</div>
         </div>
 
+        <!-- Acciones principales -->
         <div class="row-actions">
+          <!-- Refrescar lista -->
           <button id="refreshBtn" class="btn primary" type="button">
             <span class="btn-text">Actualizar</span>
             <span class="spinner" aria-hidden="true"></span>
           </button>
 
+          <!-- Cargar reporte combinado -->
           <button id="reportBtn" class="btn" type="button">
             <span class="btn-text">Ver reporte</span>
             <span class="spinner" aria-hidden="true"></span>
           </button>
 
+          <!-- Imprimir reporte -->
           <button id="printReportBtn" class="btn ghost" type="button">Imprimir</button>
+
+          <!-- Botón para iniciar flujo SSO hacia Web B -->
           <button id="goSSOBtn" class="btn ghost" type="button">Ir a Web B (SSO)</button>
 
+          <!-- Panel de SSO para pruebas -->
           <div class="sso-panel">
             <label class="muted small" for="ssoUrl">URL SSO (editable para pruebas):</label>
+
+            <!-- Input editable + botones (copiar/abrir) -->
             <div class="row">
               <input id="ssoUrl" type="text" placeholder="Genera el token para ver la URL aquí" />
               <button id="copySsoUrlBtn" type="button" class="btn">Copiar</button>
               <button id="openSsoUrlBtn" type="button" class="btn">Abrir Web B</button>
             </div>
+
+            <!-- Texto guía de pruebas -->
             <div class="muted small">
               Tip: cambia 1 carácter del token y vuelve a abrir. Web B debe rechazar.
             </div>
@@ -154,13 +244,18 @@
         </div>
       </div>
 
+      <!-- =====================================================
+           FORM: CREAR TAREA
+           ===================================================== -->
       <form id="createForm" class="form grid" novalidate>
+        <!-- Título -->
         <label class="tfield">
           <span class="tlabel">Título</span>
           <input id="newTitle" type="text" minlength="3" maxlength="80" placeholder="Ej: Entregar proyecto" />
           <div class="field-hint">Mínimo 3 caracteres, máximo 80.</div>
         </label>
 
+        <!-- Estado inicial -->
         <label class="tfield">
           <span class="tlabel">Estado</span>
           <select id="newStatus">
@@ -171,29 +266,39 @@
           <div class="field-hint">Define el estado inicial.</div>
         </label>
 
+        <!-- Descripción (opcional) -->
         <label class="tfield span2">
           <span class="tlabel">Descripción (opcional)</span>
           <input id="newDesc" type="text" maxlength="300" placeholder="Ej: docker-compose, backups y diagramas" />
           <div class="field-hint">Máximo 300 caracteres.</div>
         </label>
 
+        <!-- Botón crear -->
         <button id="createBtn" class="btn primary pill span2" type="submit">
           <span class="btn-text">Crear tarea</span>
           <span class="spinner" aria-hidden="true"></span>
         </button>
       </form>
 
+      <!-- Mensajes de estado de la app -->
       <div id="appMsg" class="msg" role="status" aria-live="polite"></div>
 
+      <!-- =====================================================
+           SPLIT: LISTA + REPORTE
+           ===================================================== -->
       <div class="split">
+        <!-- Columna izquierda: lista -->
         <div>
           <div class="section-title">
             <h3 class="h3">Lista</h3>
             <div class="chip">Live updates (WS)</div>
           </div>
+
+          <!-- Contenedor donde app.js renderiza las tareas -->
           <div id="tasksList" class="list"></div>
         </div>
 
+        <!-- Columna derecha: reporte -->
         <div>
           <div class="section-title">
             <h3 class="h3">Reporte combinado</h3>
@@ -204,6 +309,7 @@
             Este reporte mezcla tareas (Postgres) + último cambio (Mongo).
           </p>
 
+          <!-- ReportBox: inicialmente muestra un estado vacío -->
           <div id="reportBox" class="report">
             <div class="empty">
               <div class="empty-ico">📊</div>
@@ -217,12 +323,25 @@
       </div>
     </section>
   </main>
-  
 
+  <!-- =========================================================
+       FOOTER
+       ========================================================= -->
   <footer class="footer">
     <span class="muted small">Todos los derechos reservados © 2026</span>
   </footer>
 
+  <!-- =========================================================
+       SCRIPT PRINCIPAL (Web A)
+       ========================================================= -->
+  <!-- app.js contiene:
+       - login/registro (AUTH)
+       - CRUD tasks (Backend A /tasks)
+       - consumo de reportes
+       - generar URL SSO (/sso/token) y redirección a Web B
+       - manejo de modal y toasts
+       - toggle de tema
+  -->
   <script src="app.js"></script>
 </body>
 </html>
